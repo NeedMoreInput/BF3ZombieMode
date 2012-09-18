@@ -1,0 +1,26 @@
+o- Chat commands
+x-- !infect User
+x-- !heal User
+x-- !teams
+x-- !restart
+x-- !next
+x-- !zombie on
+x-- !zombie off
+o-- !rules
+x-- !warn
+
+x- Make an Admin list
+
+o- Make end of round stats
+
+x- Kick users above player count
+
+x- Enable complete filtering of all weapons for humans and zombies
+
+o- addaptive zombie kill count
+
+o- multi kills for infection
+
+o- move team swappers
+
+o- save and change server settings when setting zombie mode on and off
