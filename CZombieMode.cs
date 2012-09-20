@@ -589,7 +589,7 @@ namespace PRoConEvents
 			if (ZombieKillLimitEnabled)
 				lstReturn.Add(new CPluginVariable("Game Settings|Zombies Killed To Survive", ZombiesKilledToSurvive.GetType(), ZombiesKilledToSurvive));
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Kills Needed To Infect", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
+			lstReturn.Add(new CPluginVariable("Game Settings|Deaths Needed To Be Infected", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
 			
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicide Players", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
