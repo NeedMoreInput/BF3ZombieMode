@@ -29,7 +29,7 @@ using PRoCon.Core;
 using PRoCon.Core.Plugin;
 using PRoCon.Core.Players;
 
-enum EDisplayType { yell, say };
+enum NoticeDisplayType { yell, say };
 
 namespace PRoConEvents
 {
@@ -56,13 +56,15 @@ namespace PRoConEvents
 
 		private bool MakeTeamsRequested = false;
 
-		private EDisplayType AnnounceDisplayType = EDisplayType.yell;
+		private NoticeDisplayType AnnounceDisplayType = NoticeDisplayType.yell;
 
 		private int WarningDisplayLength = 10;
 
 		private List<String> AdminUsers = new List<String>();
 
 		private List<String> PlayerKickQueue = new List<String>();
+
+		private ZombieModeKillTracker KillTracker = new ZombieModeKillTracker();
 
 		#endregion
 
@@ -79,6 +81,8 @@ namespace PRoConEvents
 
 		private int MinimumZombies = 1;
 
+		private int DeathsNeededToBeInfected = 1;
+
 		private int ZombiesKilledToSurvive = 50;
 
 		private bool ZombieKillLimitEnabled = true;
@@ -92,10 +96,6 @@ namespace PRoConEvents
 		#endregion
 
 
-
-		public int ZombiesKilled = 0;
-
-		public int HumansKilled = 0;
 
 		private string[] ZombieWeapons = 
 	    {
@@ -300,43 +300,45 @@ namespace PRoConEvents
 		/** EVENT HANDLERS **/
 		public override void OnPlayerKickedByAdmin(string SoldierName, string reason) 
 		{
-			if (this.ZombieModeEnabled == false)
+			if (ZombieModeEnabled == false)
 				return;
 
-			for(int i = 0; i < this.PlayerKickQueue.Count;i++)
+			KillTracker.RemovePlayer(SoldierName);
+
+			for(int i = 0; i < PlayerKickQueue.Count;i++)
 			{
-				CPlayerInfo Player = this.PlayerList[i];
+				CPlayerInfo Player = PlayerList[i];
 				if (Player.SoldierName.Equals(SoldierName))
 				{
-					this.PlayerKickQueue.RemoveAt(i);
+					PlayerKickQueue.RemoveAt(i);
 				}
 			}
 		}
 
 		public override void OnPlayerAuthenticated(string SoldierName, string guid)
 		{
-			if (this.ZombieModeEnabled == false)
+			if (ZombieModeEnabled == false)
 				return;
 
-			if (this.PlayerList.Count <= this.MaxPlayers)
+			if (PlayerList.Count <= MaxPlayers)
 				return;
 
 			base.OnPlayerAuthenticated(SoldierName, guid);
 			
-			this.PlayerKickQueue.Add(SoldierName);
+			PlayerKickQueue.Add(SoldierName);
 
 			ThreadStart kickPlayer = delegate
 			{
 				try
 				{
 					Thread.Sleep(10000);
-					this.ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Sorry, zombie mode is enabled and all slots are full :( Please join when there are less than ", this.MaxPlayers.ToString(), " players"));
+					ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Sorry, zombie mode is enabled and all slots are full :( Please join when there are less than ", MaxPlayers.ToString(), " players"));
 					while (true)
 					{
-						if (!this.PlayerKickQueue.Contains(SoldierName))
+						if (!PlayerKickQueue.Contains(SoldierName))
 							break;
 
-						this.ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Sorry, zombie mode is enabled and all slots are full :( Please join when there are less than ", this.MaxPlayers.ToString(), " players"));
+						ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Sorry, zombie mode is enabled and all slots are full :( Please join when there are less than ", MaxPlayers.ToString(), " players"));
 						Thread.Sleep(500);
 					}
 				}
@@ -350,108 +352,127 @@ namespace PRoConEvents
 
 			t.Start();
 		}
+		
 		public override void OnPlayerJoin(string SoldierName)
 		{
-			if (this.ZombieModeEnabled)
-				this.MakeHuman(SoldierName);
+			if (ZombieModeEnabled)
+				MakeHuman(SoldierName);
+
+			KillTracker.AddPlayer(SoldierName);
 		}
 		
 		public override void OnPlayerKilled(Kill info)
 		{
-			if (this.ZombieModeEnabled == false)
+			if (ZombieModeEnabled == false)
 				return;
 
-			if (info.DamageType == "Death") return;
+			// Killed by admin?
+			if (info.DamageType == "Death")
+				return;
 
-			if (info.Killer.SoldierName == info.Victim.SoldierName)
+			String KillerName = info.Killer.SoldierName.ToString();
+
+			String KillerTeam = info.Killer.TeamID.ToString();
+
+			String VictimName = info.Victim.SoldierName.ToString();
+
+			String DamageType = info.DamageType;
+
+			if (KillerName == VictimName)
 			{
-				if (this.InfectSuicides)
+				if (InfectSuicides)
 				{
-					this.Infect("Suicide ", info.Victim.SoldierName);
+					Infect("Suicide ", VictimName);
 					return;
 				}
 			}
 
-			if (info.Killer.SoldierName == "")
+			if (KillerName == "")
 			{
-				if (this.InfectSuicides)
+				if (InfectSuicides)
 				{
-					this.Infect("Misfortune ", info.Victim.SoldierName);
+					Infect("Misfortune ", VictimName);
 					return;
 				}
 			}
 
-			if (info.Killer.TeamID.ToString() == HUMAN_TEAM)
-			{
-				this.ZombiesKilled += 1;
 
-				this.ConsoleLog(String.Concat("Human ", info.Killer.SoldierName, " just killed zombie ", info.Victim.SoldierName));
+			if (ValidateWeapon(info.DamageType, KillerTeam) == false)
+			{
+				ConsoleLog(String.Concat(KillerName, " invalid kill with ", info.DamageType, "!"));
+
+				KillPlayer(KillerName, "Bad weapon choice!");
 
 				return;
 			}
 
 
-			this.ConsoleLog(String.Concat("damage type: ", info.DamageType));
 
-			if (this.ValidateWeapon(info.DamageType,info.Killer.TeamID.ToString()) == false)
+			if (KillerTeam == HUMAN_TEAM)
 			{
-				this.ConsoleLog(String.Concat(info.Killer.SoldierName, " invalid kill with ", info.DamageType, "!"));
+				KillTracker.ZombieKilled(KillerName, VictimName);
 
-				this.KillPlayer(info.Killer.SoldierName, "Bad weapon choice!");
-
-				return;
+				ConsoleLog(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", DamageType));
 			}
+			else
+			{
+				ConsoleLog(String.Concat("Zombie ",KillerName, " just killed human ", VictimName, " with ", DamageType));
 
-			this.HumansKilled += 1;
+				KillTracker.HumanKilled(KillerName, VictimName);
 
-			this.Infect(info.Killer.SoldierName, info.Victim.SoldierName);
-
-			this.ConsoleLog(String.Concat(info.Killer.SoldierName, " valid zombie kill with ", info.DamageType));
+				if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
+					Infect(KillerName, VictimName);
+			}
 
 		}
 
 		public override void OnListPlayers(List<CPlayerInfo> Players, CPlayerSubset Subset)
 		{
-			this.PlayerList = Players;
+			PlayerList = Players;
+
+			foreach (CPlayerInfo Player in Players)
+			{
+				KillTracker.AddPlayer(Player.SoldierName.ToString());
+			}
 		}
 
 		public override void OnSquadChat(string PlayerName, String Message, int TeamId, int SquadId)
 		{
-			if (!this.IsAdmin(PlayerName))
+			if (!IsAdmin(PlayerName))
 				return;
 
 			List<string> MessagePieces = new List<string>(Message.Split(' '));
 
 			String Command = MessagePieces[0];
 
-			if (!Command.StartsWith(this.CommandPrefix))
+			if (!Command.StartsWith(CommandPrefix))
 				return;
 
-			switch (Command.TrimStart(this.CommandPrefix.ToCharArray()))
+			switch (Command.TrimStart(CommandPrefix.ToCharArray()))
 			{
 				case "infect":
 					if (MessagePieces.Count != 2) return;
-					this.Infect("Admin", MessagePieces[1]);
+					Infect("Admin", MessagePieces[1]);
 					break;
 				case "heal":
 					if (MessagePieces.Count != 2) return;
-					this.MakeHuman(MessagePieces[1]);
+					MakeHuman(MessagePieces[1]);
 					break;
 				case "teams":
-					this.MakeTeamsRequest();
+					MakeTeamsRequest();
 					break;
 				case "restart":
-					this.RestartRound();
+					RestartRound();
 					break;
 				case "next":
-					this.NextRound();
+					NextRound();
 					break;
 				case "zombie":
 					if (MessagePieces.Count < 2) return;
 					if (MessagePieces[1] == "on")
-						this.ZombieModeEnabled = true;
+						ZombieModeEnabled = true;
 					else if (MessagePieces[1] == "off")
-						this.ZombieModeEnabled = false;
+						ZombieModeEnabled = false;
 					break;
 				case "rules":
 					break;
@@ -459,32 +480,32 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 3) return;
 					string WarningMessage = String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray());
 
-					this.ConsoleLog(WarningMessage);
-					this.Warn(MessagePieces[1], WarningMessage);
+					ConsoleLog(WarningMessage);
+					Warn(MessagePieces[1], WarningMessage);
 					break;
 
 				case "kill":
 					if (MessagePieces.Count < 2) return;
 					string KillMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 
-					this.ConsoleLog(KillMessage);
-					this.KillPlayer(MessagePieces[1], KillMessage);
+					ConsoleLog(KillMessage);
+					KillPlayer(MessagePieces[1], KillMessage);
 					break;
 
 				case "kick":
 					if (MessagePieces.Count < 2) return;
 					string KickMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 
-					this.KickPlayer(MessagePieces[1], KickMessage);
+					KickPlayer(MessagePieces[1], KickMessage);
 					break;
 				case "test":
-					this.ConsoleLog("loopz");
-					this.ConsoleLog(this.FrostbitePlayerInfoList.Values.Count.ToString());
-					foreach (CPlayerInfo Player in this.FrostbitePlayerInfoList.Values)
+					ConsoleLog("loopz");
+					ConsoleLog(FrostbitePlayerInfoList.Values.Count.ToString());
+					foreach (CPlayerInfo Player in FrostbitePlayerInfoList.Values)
 					{
-						this.ConsoleLog("looping");
+						ConsoleLog("looping");
 						String testmessage = Player.SoldierName;
-						this.ConsoleLog(testmessage);
+						ConsoleLog(testmessage);
 					}
 					break;
 			}
@@ -496,23 +517,22 @@ namespace PRoConEvents
 
 		#region PluginMethods
 		/** PLUGIN RELATED SHIT **/
-		// Compile and init events
 		#region PluginEventHandlers
 		public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
 		{
-			this.RegisterEvents(this.GetType().Name, "OnPlayerKilled", "OnListPlayers", "OnSquadChat", "OnPlayerAuthenticated", "OnPlayerKickedByAdmin");
+			RegisterEvents(GetType().Name, "OnPlayerKilled", "OnListPlayers", "OnSquadChat", "OnPlayerAuthenticated", "OnPlayerKickedByAdmin");
 		}
 
 		public void OnPluginEnable()
 		{
 			//System.Diagnostics.Debugger.Break();
-			this.ConsoleLog(String.Concat("^b", this.GetPluginName(), " ^2Enabled... It's Game Time!"));
+			ConsoleLog(String.Concat("^b", GetPluginName(), " ^2Enabled... It's Game Time!"));
 		}
 
 		public void OnPluginDisable()
 		{
-			this.ConsoleLog(String.Concat("^b", this.GetPluginName(), " ^2Disabled :("));
-			this.Reset();
+			ConsoleLog(String.Concat("^b", GetPluginName(), " ^2Disabled :("));
+			Reset();
 		}
 		#endregion
 
@@ -548,31 +568,34 @@ namespace PRoConEvents
 		{
 			List<CPluginVariable> lstReturn = new List<CPluginVariable>();
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Zombie Mode Enabled", typeof(enumBoolYesNo), this.ZombieModeEnabled ? enumBoolYesNo.Yes : enumBoolYesNo.No));
+			lstReturn.Add(new CPluginVariable("Game Settings|Zombie Mode Enabled", typeof(enumBoolYesNo), ZombieModeEnabled ? enumBoolYesNo.Yes : enumBoolYesNo.No));
 
-			lstReturn.Add(new CPluginVariable("Admin Settings|Command Prefix", this.CommandPrefix.GetType(), this.CommandPrefix));
+			lstReturn.Add(new CPluginVariable("Admin Settings|Command Prefix", CommandPrefix.GetType(), CommandPrefix));
 
-			lstReturn.Add(new CPluginVariable("Admin Settings|Announce Display Length", this.AnnounceDisplayLength.GetType(), this.AnnounceDisplayLength));
+			lstReturn.Add(new CPluginVariable("Admin Settings|Announce Display Length", AnnounceDisplayLength.GetType(), AnnounceDisplayLength));
 
-			lstReturn.Add(new CPluginVariable("Admin Settings|Warning Display Length", this.WarningDisplayLength.GetType(), this.WarningDisplayLength));
+			lstReturn.Add(new CPluginVariable("Admin Settings|Warning Display Length", WarningDisplayLength.GetType(), WarningDisplayLength));
 
-			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), this.AdminUsers.ToArray()));
+			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), AdminUsers.ToArray()));
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Max Players", this.MaxPlayers.GetType(), this.MaxPlayers));
+			lstReturn.Add(new CPluginVariable("Game Settings|Max Players", MaxPlayers.GetType(), MaxPlayers));
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Minimum Zombies", this.MinimumZombies.GetType(), this.MinimumZombies));
+			lstReturn.Add(new CPluginVariable("Game Settings|Minimum Zombies", MinimumZombies.GetType(), MinimumZombies));
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Minimum Humans", this.MinimumHumans.GetType(), this.MinimumHumans));
+			lstReturn.Add(new CPluginVariable("Game Settings|Minimum Humans", MinimumHumans.GetType(), MinimumHumans));
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Zombie Kill Limit Enabled", typeof(enumBoolOnOff), this.ZombieKillLimitEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
+			lstReturn.Add(new CPluginVariable("Game Settings|Zombie Kill Limit Enabled", typeof(enumBoolOnOff), ZombieKillLimitEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 
-			if (this.ZombieKillLimitEnabled)
-				lstReturn.Add(new CPluginVariable("Game Settings|Zombies Killed To Survive", this.ZombiesKilledToSurvive.GetType(), this.ZombiesKilledToSurvive));
+			if (ZombieKillLimitEnabled)
+				lstReturn.Add(new CPluginVariable("Game Settings|Zombies Killed To Survive", ZombiesKilledToSurvive.GetType(), ZombiesKilledToSurvive));
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicide Players", typeof(enumBoolOnOff), this.InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
+			lstReturn.Add(new CPluginVariable("Game Settings|Kills Needed To Infect", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
+			
+
+			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicide Players", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
 
 
-			foreach (PRoCon.Core.Players.Items.Weapon Weapon in this.WeaponDictionaryByLocalizedName.Values)
+			foreach (PRoCon.Core.Players.Items.Weapon Weapon in WeaponDictionaryByLocalizedName.Values)
 			{
 				String WeaponDamage = Weapon.Damage.ToString();
 
@@ -580,8 +603,8 @@ namespace PRoConEvents
 					continue;
 
 				String WeaponName = Weapon.Name.ToString();
-				lstReturn.Add(new CPluginVariable(String.Concat("Zombie Weapons|Z -", WeaponName), typeof(enumBoolOnOff), this.ZombieWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
-				lstReturn.Add(new CPluginVariable(String.Concat("Human Weapons|H -", WeaponName), typeof(enumBoolOnOff), this.HumanWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
+				lstReturn.Add(new CPluginVariable(String.Concat("Zombie Weapons|Z -", WeaponName), typeof(enumBoolOnOff), ZombieWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
+				lstReturn.Add(new CPluginVariable(String.Concat("Human Weapons|H -", WeaponName), typeof(enumBoolOnOff), HumanWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			}
 
 
@@ -590,9 +613,7 @@ namespace PRoConEvents
 
 		public List<CPluginVariable> GetPluginVariables()
 		{
-			List<CPluginVariable> lstReturn = this.GetDisplayPluginVariables();
-
-
+			List<CPluginVariable> lstReturn = GetDisplayPluginVariables();
 
 			return lstReturn;
 		}
@@ -614,7 +635,7 @@ namespace PRoConEvents
 
 					String PropertyName = Name.Replace(" ", "");
 
-					FieldInfo Field = this.GetType().GetField(PropertyName, Flags);
+					FieldInfo Field = GetType().GetField(PropertyName, Flags);
 
 					Dictionary<int, Type> EasyTypeDict = new Dictionary<int, Type>();
 					EasyTypeDict.Add(0, typeof(int));
@@ -654,23 +675,23 @@ namespace PRoConEvents
 					{
 						String WeaponName = Name.Substring(3, Name.Length - 3);
 
-						if (this.WeaponList.IndexOf(WeaponName) >= 0)
+						if (WeaponList.IndexOf(WeaponName) >= 0)
 						{
 							String WeaponType = Name.Substring(0, 3);
 
 							if (WeaponType == "H -")
 							{
 								if (Value == "On")
-									this.EnableHumanWeapon(WeaponName);
+									EnableHumanWeapon(WeaponName);
 								else
-									this.DisableHumanWeapon(WeaponName);
+									DisableHumanWeapon(WeaponName);
 							}
 							else
 							{
 								if (Value == "On")
-									this.EnableZombieWeapon(WeaponName);
+									EnableZombieWeapon(WeaponName);
 								else
-									this.DisableZombieWeapon(WeaponName);
+									DisableZombieWeapon(WeaponName);
 							}
 
 						}
@@ -698,12 +719,12 @@ namespace PRoConEvents
 
 		private void RestartRound()
 		{
-			this.ExecuteCommand("procon.protected.send", "mapList.restartRound");
+			ExecuteCommand("procon.protected.send", "mapList.restartRound");
 		}
 
 		private void NextRound()
 		{
-			this.ExecuteCommand("procon.protected.send", "mapList.runNextRound");
+			ExecuteCommand("procon.protected.send", "mapList.runNextRound");
 		}
 
 		#endregion
@@ -713,39 +734,36 @@ namespace PRoConEvents
 
 		private void Warn(String PlayerName, String Message)
 		{
-			this.ExecuteCommand("procon.protected.send", "admin.yell", Message, this.WarningDisplayLength.ToString(), "all", PlayerName);
+			ExecuteCommand("procon.protected.send", "admin.yell", Message, WarningDisplayLength.ToString(), "all", PlayerName);
 		}
 
 		private void KillPlayer(string PlayerName, string Reason)
 		{
-			this.ExecuteCommand("procon.protected.send", "admin.killPlayer", PlayerName);
+			ExecuteCommand("procon.protected.send", "admin.killPlayer", PlayerName);
 
 			if (Reason.Length > 0)
-				this.Announce(String.Concat(PlayerName, ": ", Reason));
+				Announce(String.Concat(PlayerName, ": ", Reason));
 		}
 
 		private void KickPlayerDelayed(string PlayerName, string Reason, int SecsToDelay)
 		{
-			this.ExecuteCommand("procon.protected.tasks.add", "ZombieKickUser", SecsToDelay.ToString(), "1", "1", "admin.kickPlayer", PlayerName, Reason);
+			ExecuteCommand("procon.protected.tasks.add", "ZombieKickUser", SecsToDelay.ToString(), "1", "1", "admin.kickPlayer", PlayerName, Reason);
 		}
 
 		private void KickPlayer(string PlayerName, string Reason)
 		{
-			this.ExecuteCommand("procon.protected.send", "admin.kickPlayer", PlayerName, Reason);
+			ExecuteCommand("procon.protected.send", "admin.kickPlayer", PlayerName, Reason);
 
 			if (Reason.Length > 0)
-				this.Announce(String.Concat(PlayerName, "kicked for: ", Reason));
+				Announce(String.Concat(PlayerName, "kicked for: ", Reason));
 		}
 
 		#endregion
-
-
 
 		private void Rules(String PlayerName)
 		{
 
 		}
-
 
 		#region TeamMethods
 
@@ -755,79 +773,79 @@ namespace PRoConEvents
 
 			Random r = new Random();
 			int randomIndex = 0;
-			while (this.PlayerList.Count > 0)
+			while (PlayerList.Count > 0)
 			{
-				randomIndex = r.Next(0, this.PlayerList.Count); //Choose a random object in the list
-				randomList.Add(this.PlayerList[randomIndex]); //add it to the new, random list
-				this.PlayerList.RemoveAt(randomIndex); //remove to avoid duplicates
+				randomIndex = r.Next(0, PlayerList.Count); //Choose a random object in the list
+				randomList.Add(PlayerList[randomIndex]); //add it to the new, random list
+				PlayerList.RemoveAt(randomIndex); //remove to avoid duplicates
 			}
 
-			this.PlayerList = randomList; //return the new random list
+			PlayerList = randomList; //return the new random list
 
-			if (this.MakeTeamsRequested == true)
-				this.MakeTeams();
+			if (MakeTeamsRequested == true)
+				MakeTeams();
 
 		}
 
 		private void RequestPlayersList()
 		{
-			this.ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
 		}
 
 		private void MakeTeamsRequest()
 		{
-			this.Announce("Teams are being generated!");
+			Announce("Teams are being generated!");
 
-			this.ConsoleLog("Teams being generated");
+			ConsoleLog("Teams being generated");
 
-			this.MakeTeamsRequested = true;
+			MakeTeamsRequested = true;
 
-			this.RequestPlayersList();
+			RequestPlayersList();
 		}
 
 		private void MakeTeams()
 		{
-			this.MakeTeamsRequested = false;
+			MakeTeamsRequested = false;
 
-			this.ShufflePlayersList();
+			ShufflePlayersList();
 
 			int ZombieCount = 0;
-			foreach (CPlayerInfo Player in this.PlayerList)
+			foreach (CPlayerInfo Player in PlayerList)
 			{
-				if (ZombieCount < this.MinimumZombies)
+				if (ZombieCount < MinimumZombies)
 				{
 					ZombieCount++;
-					this.ConsoleLog(String.Concat("Making ", Player, " a zombie"));
-					this.MakeZombie(Player.SoldierName);
+					ConsoleLog(String.Concat("Making ", Player, " a zombie"));
+					MakeZombie(Player.SoldierName);
 
 				}
 				else
 				{
-					this.ConsoleLog(String.Concat("Making ", Player, " a human"));
-					this.MakeHuman(Player.SoldierName);
+					ConsoleLog(String.Concat("Making ", Player, " a human"));
+					MakeHuman(Player.SoldierName);
 				}
 			}
 
-			this.ConsoleLog("Team generation complete.");
+			ConsoleLog("Team generation complete.");
 		}
 
 		public void Infect(string Carrier, string Victim)
 		{
-			this.Announce(String.Concat(Carrier, " just infected ", Victim));
+			Announce(String.Concat(Carrier, " just infected ", Victim));
 
-			this.MakeZombie(Victim);
+			MakeZombie(Victim);
 		}
 
 		private void MakeHuman(string PlayerName)
 		{
-			this.Announce(String.Concat(PlayerName, " has join the fight for survival!"));
+			Announce(String.Concat(PlayerName, " has join the fight for survival!"));
 
-			this.ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
+			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
 		}
 
 		private void MakeZombie(string PlayerName)
 		{
-			this.ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, ZOMBIE_TEAM, BLANK_SQUAD, FORCE_MOVE);
+			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, ZOMBIE_TEAM, BLANK_SQUAD, FORCE_MOVE);
 		}
 
 		#endregion
@@ -836,30 +854,30 @@ namespace PRoConEvents
 
 		private void DisableZombieWeapon(String WeaponName)
 		{
-			int Index = this.ZombieWeaponsEnabled.IndexOf(WeaponName);
+			int Index = ZombieWeaponsEnabled.IndexOf(WeaponName);
 			if (Index >= 0)
-				this.ZombieWeaponsEnabled.RemoveAt(Index);
+				ZombieWeaponsEnabled.RemoveAt(Index);
 		}
 
 		private void DisableHumanWeapon(String WeaponName)
 		{
-			int Index = this.HumanWeaponsEnabled.IndexOf(WeaponName);
+			int Index = HumanWeaponsEnabled.IndexOf(WeaponName);
 			if (Index >= 0)
-				this.HumanWeaponsEnabled.RemoveAt(Index);
+				HumanWeaponsEnabled.RemoveAt(Index);
 		}
 
 		private void EnableZombieWeapon(String WeaponName)
 		{
-			int Index = this.ZombieWeaponsEnabled.IndexOf(WeaponName);
+			int Index = ZombieWeaponsEnabled.IndexOf(WeaponName);
 			if (Index < 0)
-				this.ZombieWeaponsEnabled.Add(WeaponName);
+				ZombieWeaponsEnabled.Add(WeaponName);
 		}
 
 		private void EnableHumanWeapon(String WeaponName)
 		{
-			int Index = this.HumanWeaponsEnabled.IndexOf(WeaponName);
+			int Index = HumanWeaponsEnabled.IndexOf(WeaponName);
 			if (Index < 0)
-				this.HumanWeaponsEnabled.Add(WeaponName);
+				HumanWeaponsEnabled.Add(WeaponName);
 
 		}
 
@@ -867,8 +885,8 @@ namespace PRoConEvents
 		{
 
 			if (
-				(TEAM_CONST == HUMAN_TEAM && this.HumanWeaponsEnabled.IndexOf(Weapon) >= 0) || 
-				(TEAM_CONST == ZOMBIE_TEAM && this.ZombieWeaponsEnabled.IndexOf(Weapon) >= 0)
+				(TEAM_CONST == HUMAN_TEAM && HumanWeaponsEnabled.IndexOf(Weapon) >= 0) || 
+				(TEAM_CONST == ZOMBIE_TEAM && ZombieWeaponsEnabled.IndexOf(Weapon) >= 0)
 				)
 				return true;
 			
@@ -879,26 +897,102 @@ namespace PRoConEvents
 
 		private bool IsAdmin(string PlayerName)
 		{
-			return this.AdminUsers.IndexOf(PlayerName) >= 0 ? true : false;
+			return AdminUsers.IndexOf(PlayerName) >= 0 ? true : false;
 		}
 
 		private void ConsoleLog(string str)
 		{
-			this.ExecuteCommand("procon.protected.pluginconsole.write", str);
+			ExecuteCommand("procon.protected.pluginconsole.write", str);
 		}
 
 		private void Announce(string Message)
 		{
-			this.ExecuteCommand("procon.protected.send", "admin.yell", Message, this.AnnounceDisplayLength.ToString(), this.AnnounceDisplayType.ToString());
+			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), AnnounceDisplayType.ToString());
 		}
 
 		private void Reset()
 		{
-			this.ZombiesKilled = 0;
-			this.HumansKilled = 0;
-			this.PlayerList = new List<CPlayerInfo>();
+			PlayerList.Clear();
 		}
 
+	}
+
+	enum ZombieModeTeam  {Human,Zombie};
+
+	struct ZombieModeKillTrackerKills
+	{
+		public int KillsAsZombie = 0;
+
+		public int KillsAsHuman = 0;
+
+		public int DeathsAsZombie = 0;
+
+		public int DeathsAsHuman = 0;
+	}
+
+	class ZombieModeKillTracker
+	{
+		protected Dictionary<String, ZombieModeKillTrackerKills> Kills = new Dictionary<String, ZombieModeKillTrackerKills>();
+
+		protected int ZombiesKilled = 0;
+
+		protected int HumansKilled = 0;
+
+		public void HumanKilled(String KillerName, String VictimName)
+		{
+			ZombieModeKillTrackerKills Killer = Kills[KillerName];
+			Killer.KillsAsZombie++;
+
+			ZombieModeKillTrackerKills Victim = Kills[VictimName];
+			Victim.DeathsAsHuman++;
+
+			HumansKilled++;
+		}
+
+		public void ZombieKilled(String KillerName, String VictimName)
+		{
+			ZombieModeKillTrackerKills Killer = Kills[KillerName];
+			Killer.KillsAsHuman++;
+
+			ZombieModeKillTrackerKills Victim = Kills[VictimName];
+			Victim.DeathsAsZombie++;
+
+			ZombiesKilled++;
+		}
+
+		protected Boolean PlayerExists(String PlayerName)
+		{
+			return Kills.ContainsKey(PlayerName);
+		}
+
+		public void AddPlayer(String PlayerName)
+		{
+			if (!PlayerExists(PlayerName))
+				Kills.Add(PlayerName, new ZombieModeKillTrackerKills());
+		}
+
+		public void RemovePlayer(String PlayerName)
+		{
+			if (!PlayerExists(PlayerName))
+				return;
+
+			Kills.Remove(PlayerName);
+		}
+
+		public int GetZombiesKilled()
+		{
+			return ZombiesKilled;
+		}
+
+		public int GetHumansKilled()
+		{
+			return HumansKilled;
+		}
+
+		public int GetPlayerHumanDeathCount(String PlayerName)
+		{
+			return Kills[PlayerName].DeathsAsHuman;
+		}
 	}
 
 }
