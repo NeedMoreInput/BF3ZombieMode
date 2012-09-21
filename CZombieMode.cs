@@ -1,4 +1,4 @@
-﻿/*  Copyright 2010 Geoffrey 'Phogue' Green
+/*  Copyright 2010 Geoffrey 'Phogue' Green
 
     This file is part of BFBC2 PRoCon.
 
@@ -921,13 +921,13 @@ namespace PRoConEvents
 
 	struct ZombieModeKillTrackerKills
 	{
-		public int KillsAsZombie = 0;
+		public int KillsAsZombie;
 
-		public int KillsAsHuman = 0;
+		public int KillsAsHuman;
 
-		public int DeathsAsZombie = 0;
+		public int DeathsAsZombie;
 
-		public int DeathsAsHuman = 0;
+		public int DeathsAsHuman;
 	}
 
 	class ZombieModeKillTracker
