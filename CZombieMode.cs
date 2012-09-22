@@ -35,6 +35,8 @@ namespace PRoConEvents
 		#endregion
 
 		#region PluginSettings
+		
+		private int DebugLevel = 3; // 3 while in development, 2 when released
 
 		private string CommandPrefix = "!";
 
@@ -288,6 +290,8 @@ namespace PRoConEvents
 		{
 			if (ZombieModeEnabled == false)
 				return;
+			
+			DebugWrite("OnPlayerKickedByAdmin: " + SoldierName + ", reason: " + reason, 1);
 
 			KillTracker.RemovePlayer(SoldierName);
 
@@ -306,6 +310,8 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 
+			DebugWrite("OnPlayerAuthenticated: " + SoldierName, 3);
+			
 			if (PlayerList.Count <= MaxPlayers)
 				return;
 
@@ -342,7 +348,10 @@ namespace PRoConEvents
 		public override void OnPlayerJoin(string SoldierName)
 		{
 			if (ZombieModeEnabled)
+			{
+				DebugWrite("OnPlayerJoin: " + SoldierName, 3);
 				MakeHuman(SoldierName);
+			}
 
 			KillTracker.AddPlayer(SoldierName);
 		}
@@ -352,6 +361,8 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 
+			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + info.DamageType, 3);
+			
 			// Killed by admin?
 			if (info.DamageType == "Death")
 				return;
@@ -385,7 +396,7 @@ namespace PRoConEvents
 
 			if (ValidateWeapon(info.DamageType, KillerTeam) == false)
 			{
-				ConsoleLog(String.Concat(KillerName, " invalid kill with ", info.DamageType, "!"));
+				DebugWrite(String.Concat(KillerName, " invalid kill with ", info.DamageType, "!"), 2);
 
 				KillPlayer(KillerName, "Bad weapon choice!");
 
@@ -398,11 +409,11 @@ namespace PRoConEvents
 			{
 				KillTracker.ZombieKilled(KillerName, VictimName);
 
-				ConsoleLog(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", DamageType));
+				DebugWrite(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", DamageType), 3);
 			}
 			else
 			{
-				ConsoleLog(String.Concat("Zombie ",KillerName, " just killed human ", VictimName, " with ", DamageType));
+				DebugWrite(String.Concat("Zombie ",KillerName, " just killed human ", VictimName, " with ", DamageType), 2);
 
 				KillTracker.HumanKilled(KillerName, VictimName);
 
@@ -415,6 +426,8 @@ namespace PRoConEvents
 		public override void OnListPlayers(List<CPlayerInfo> Players, CPlayerSubset Subset)
 		{
 			PlayerList = Players;
+			
+			DebugWrite("OnListPlayers: " + Players.Count + " players", 3);
 
 			foreach (CPlayerInfo Player in Players)
 			{
@@ -433,6 +446,8 @@ namespace PRoConEvents
 
 			if (!Command.StartsWith(CommandPrefix))
 				return;
+				
+			DebugWrite("Command: " + Message, 3);
 
 			switch (Command.TrimStart(CommandPrefix.ToCharArray()))
 			{
@@ -466,7 +481,7 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 3) return;
 					string WarningMessage = String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray());
 
-					ConsoleLog(WarningMessage);
+					DebugWrite(WarningMessage, 1);
 					Warn(MessagePieces[1], WarningMessage);
 					break;
 
@@ -474,7 +489,7 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 2) return;
 					string KillMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 
-					ConsoleLog(KillMessage);
+					DebugWrite(KillMessage, 1);
 					KillPlayer(MessagePieces[1], KillMessage);
 					break;
 
@@ -485,17 +500,23 @@ namespace PRoConEvents
 					KickPlayer(MessagePieces[1], KickMessage);
 					break;
 				case "test":
-					ConsoleLog("loopz");
-					ConsoleLog(FrostbitePlayerInfoList.Values.Count.ToString());
+					DebugWrite("loopz", 2);
+					DebugWrite(FrostbitePlayerInfoList.Values.Count.ToString(), 2);
 					foreach (CPlayerInfo Player in FrostbitePlayerInfoList.Values)
 					{
-						ConsoleLog("looping");
+						DebugWrite("looping", 2);
 						String testmessage = Player.SoldierName;
-						ConsoleLog(testmessage);
+						DebugWrite(testmessage, 2);
 					}
 					break;
 			}
 
+		}
+
+		public override void OnServerInfo(CServerInfo serverInfo)
+		{
+			// This is just to test debug logging
+			DebugWrite("Debug level = " + DebugLevel, 5);
 		}
 
 		#endregion
@@ -506,18 +527,18 @@ namespace PRoConEvents
 		#region PluginEventHandlers
 		public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
 		{
-			RegisterEvents(GetType().Name, "OnPlayerKilled", "OnListPlayers", "OnSquadChat", "OnPlayerAuthenticated", "OnPlayerKickedByAdmin");
+			RegisterEvents(GetType().Name, "OnPlayerKilled", "OnListPlayers", "OnSquadChat", "OnPlayerAuthenticated", "OnPlayerKickedByAdmin", "OnServerInfo");
 		}
 
 		public void OnPluginEnable()
 		{
 			//System.Diagnostics.Debugger.Break();
-			ConsoleLog(String.Concat("^b", GetPluginName(), " ^2Enabled... It's Game Time!"));
+			ConsoleLog("^b^2Enabled... It's Game Time!");
 		}
 
 		public void OnPluginDisable()
 		{
-			ConsoleLog(String.Concat("^b", GetPluginName(), " ^2Disabled :("));
+			ConsoleLog("^b^2Disabled :(");
 			Reset();
 		}
 		#endregion
@@ -540,7 +561,7 @@ namespace PRoConEvents
 
 		public string GetPluginWebsite()
 		{
-			return "http://google.com";
+			return "http://www.phogue.net";
 		}
 
 		public string GetPluginDescription()
@@ -561,6 +582,8 @@ namespace PRoConEvents
 			lstReturn.Add(new CPluginVariable("Admin Settings|Announce Display Length", AnnounceDisplayLength.GetType(), AnnounceDisplayLength));
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Warning Display Length", WarningDisplayLength.GetType(), WarningDisplayLength));
+
+			lstReturn.Add(new CPluginVariable("Admin Settings|Debug Level", DebugLevel.GetType(), DebugLevel));
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), AdminUsers.ToArray()));
 
@@ -782,7 +805,7 @@ namespace PRoConEvents
 		{
 			Announce("Teams are being generated!");
 
-			ConsoleLog("Teams being generated");
+			DebugWrite("Teams being generated", 2);
 
 			MakeTeamsRequested = true;
 
@@ -801,18 +824,18 @@ namespace PRoConEvents
 				if (ZombieCount < MinimumZombies)
 				{
 					ZombieCount++;
-					ConsoleLog(String.Concat("Making ", Player, " a zombie"));
+					DebugWrite(String.Concat("Making ", Player, " a zombie"), 3);
 					MakeZombie(Player.SoldierName);
 
 				}
 				else
 				{
-					ConsoleLog(String.Concat("Making ", Player, " a human"));
+					DebugWrite(String.Concat("Making ", Player, " a human"), 3);
 					MakeHuman(Player.SoldierName);
 				}
 			}
 
-			ConsoleLog("Team generation complete.");
+			DebugWrite("Team generation complete.", 3);
 		}
 
 		public void Infect(string Carrier, string Victim)
@@ -881,12 +904,15 @@ namespace PRoConEvents
 
 		#endregion
 
+
+		#region Utilities
+
 		private bool IsAdmin(string PlayerName)
 		{
 			return AdminUsers.IndexOf(PlayerName) >= 0 ? true : false;
 		}
 
-		private void ConsoleLog(string str)
+		private void ConsoleWrite(string str)
 		{
 			ExecuteCommand("procon.protected.pluginconsole.write", str);
 		}
@@ -900,6 +926,55 @@ namespace PRoConEvents
 		{
 			PlayerList.Clear();
 		}
+
+		private enum MessageType { Warning, Error, Exception, Normal };
+
+		private String FormatMessage(String msg, MessageType type)
+		{
+			String prefix = "[^b" + GetPluginName() + "^n] ";
+
+			if (type.Equals(MessageType.Warning))
+				prefix += "^1^bWARNING^0^n: ";
+			else if (type.Equals(MessageType.Error))
+				prefix += "^1^bERROR^0^n: ";
+			else if (type.Equals(MessageType.Exception))
+				prefix += "^1^bEXCEPTION^0^n: ";
+
+			return prefix + msg;
+		}
+
+
+		private void ConsoleLog(string msg, MessageType type)
+		{
+			ConsoleWrite(FormatMessage(msg, type));
+		}
+
+		private void ConsoleLog(string msg)
+		{
+			ConsoleLog(msg, MessageType.Normal);
+		}
+
+		private void ConsoleWarn(String msg)
+		{
+			ConsoleLog(msg, MessageType.Warning);
+		}
+
+		private void ConsoleError(String msg)
+		{
+			ConsoleLog(msg, MessageType.Error);
+		}
+
+		private void ConsoleException(String msg)
+		{
+			ConsoleLog(msg, MessageType.Exception);
+		}
+
+		private void DebugWrite(string msg, int level)
+		{
+			if (DebugLevel >= level) ConsoleLog(msg, MessageType.Normal);
+		}
+
+		#endregion
 
 	}
 
