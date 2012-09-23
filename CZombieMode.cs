@@ -803,7 +803,7 @@ namespace PRoConEvents
 
 		private void MakeTeamsRequest()
 		{
-			Announce("Teams are being generated!");
+			Announce("Teams are being generated!"); // TBD - custom message
 
 			DebugWrite("Teams being generated", 2);
 
@@ -840,14 +840,14 @@ namespace PRoConEvents
 
 		public void Infect(string Carrier, string Victim)
 		{
-			Announce(String.Concat(Carrier, " just infected ", Victim));
+			Announce(String.Concat(Carrier, " just infected ", Victim)); // TBD - custom message
 
 			MakeZombie(Victim);
 		}
 
 		private void MakeHuman(string PlayerName)
 		{
-			Announce(String.Concat(PlayerName, " has join the fight for survival!"));
+			Announce(String.Concat(PlayerName, " has join the fight for survival!")); // TBD - custom message
 
 			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
 		}
@@ -920,6 +920,27 @@ namespace PRoConEvents
 		private void Announce(string Message)
 		{
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), AnnounceDisplayType.ToString());
+		}
+
+		private void TellAll(string Message)
+		{
+			// Yell and say
+			Announce(Message);
+			ExecuteCommand("procon.protected.send", "admin.say", Message, "all");
+		}
+
+		private void TellTeam(string Message, string TeamId)
+		{
+			// Yell and say
+			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "team", TeamId);
+			ExecuteCommand("procon.protected.send", "admin.say", Message, "team", TeamId);
+		}
+
+		private void TellPlayer(string Message, string SoldierName)
+		{
+			// Yell and say
+			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "player", SoldierName);
+			ExecuteCommand("procon.protected.send", "admin.say", Message, "player", SoldierName);
 		}
 
 		private void Reset()
