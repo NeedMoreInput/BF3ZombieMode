@@ -80,6 +80,12 @@ namespace PRoConEvents
 		private int ZombieBulletDamage = 0;
 
 		private bool InfectSuicides = true;
+		
+		private List<String> TeamHuman = new List<String>();
+		
+		private List<String> TeamZombie = new List<String>();
+		
+		private List<String> FreshZombie = new List<String>();
 
 		#endregion
 
@@ -519,6 +525,53 @@ namespace PRoConEvents
 			DebugWrite("Debug level = " + DebugLevel, 5);
 		}
 
+		public override void OnPlayerTeamChange(string soldierName, int teamId, int squadId)
+		{
+			bool wasZombie = TeamZombie.Contains(soldierName);
+			bool wasHuman = TeamHuman.Contains(soldierName);
+
+			// Ignore squad changes within team
+			if (teamId == 1 && wasHuman) return;
+			if (teamId == 2 && wasZombie) return;
+			if (!(teamId == 1 || teamId == 2)) {
+				ConsoleError("OnPlayerTeamChange unknown teamId = " + teamId);
+				return;
+			}
+			
+			string team = (wasHuman) ? "HUMAN" : "ZOMBIE";
+			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
+			
+			if (teamId == 1 && wasZombie) {
+				// Switching to human team is not allowed
+				TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // TBD - custom message
+				
+				KillPlayerAfterDelay(soldierName, AnnounceDisplayLength);
+				
+				ExecuteCommand("procon.protected.tasks.add", "MovePlayerAfterDelay", AnnounceDisplayLength.ToString(), "1", "1", "admin.movePlayer", soldierName, ZOMBIE_TEAM, BLANK_SQUAD, FORCE_MOVE);
+
+				if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+				if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+				
+			} else if (teamId == 2 && wasHuman) {
+				// Switching to the zombie team is okay
+				FreshZombie.Add(soldierName);
+				
+				if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+				if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+			}
+		}
+
+
+		public override void OnPlayerSpawned(string soldierName, Inventory spawnedInventory)
+		{
+			// Tell zombies they can only use hand to hand weapons
+			if (FreshZombie.Contains(soldierName)) {
+				DebugWrite("OnPlayerSpawned " + soldierName + " is fresh zombie!", 3);
+				FreshZombie.Remove(soldierName);
+				TellPlayer("You are now a zombie! Use a knife only!", soldierName); // TBD - custom message
+			}
+		}
+
 		#endregion
 
 
@@ -527,7 +580,15 @@ namespace PRoConEvents
 		#region PluginEventHandlers
 		public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
 		{
-			RegisterEvents(GetType().Name, "OnPlayerKilled", "OnListPlayers", "OnSquadChat", "OnPlayerAuthenticated", "OnPlayerKickedByAdmin", "OnServerInfo");
+			RegisterEvents(GetType().Name, 
+				"OnPlayerKilled",
+				"OnListPlayers",
+				"OnSquadChat",
+				"OnPlayerAuthenticated",
+				"OnPlayerKickedByAdmin",
+				"OnServerInfo",
+				"OnPlayerTeamChange",
+				"OnPlayerSpawned");
 		}
 
 		public void OnPluginEnable()
@@ -754,6 +815,12 @@ namespace PRoConEvents
 				Announce(String.Concat(PlayerName, ": ", Reason));
 		}
 
+		private void KillPlayerAfterDelay(string PlayerName, int Delay)
+		{
+			DebugWrite("KillPlayerAfterDelay " + PlayerName + " after " + Delay, 3);
+			ExecuteCommand("procon.protected.tasks.add", "KillPlayerAfterDelay", Delay.ToString(), "0", "1", "admin.killPlayer", PlayerName);
+		}
+
 		private void KickPlayerDelayed(string PlayerName, string Reason, int SecsToDelay)
 		{
 			ExecuteCommand("procon.protected.tasks.add", "ZombieKickUser", SecsToDelay.ToString(), "1", "1", "admin.kickPlayer", PlayerName, Reason);
@@ -843,18 +910,30 @@ namespace PRoConEvents
 			Announce(String.Concat(Carrier, " just infected ", Victim)); // TBD - custom message
 
 			MakeZombie(Victim);
+			
+			FreshZombie.Add(Victim);
 		}
 
 		private void MakeHuman(string PlayerName)
 		{
 			Announce(String.Concat(PlayerName, " has join the fight for survival!")); // TBD - custom message
+			
+			DebugWrite("MakeHuman: " + PlayerName, 3);
 
 			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
+			
+			if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
+			if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
 		}
 
 		private void MakeZombie(string PlayerName)
 		{
+			DebugWrite("MakeHuman: " + PlayerName, 3);
+
 			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, ZOMBIE_TEAM, BLANK_SQUAD, FORCE_MOVE);
+			
+			if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
+			if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);			
 		}
 
 		#endregion
