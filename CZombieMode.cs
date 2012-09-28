@@ -61,7 +61,7 @@ namespace PRoConEvents
 
 		private List<CPlayerInfo> PlayerList = new List<CPlayerInfo>();
 
-		private bool ZombieModeEnabled = false;
+		private bool ZombieModeEnabled = true;
 
 		private int MaxPlayers = 12;
 
@@ -438,6 +438,15 @@ namespace PRoConEvents
 			foreach (CPlayerInfo Player in Players)
 			{
 				KillTracker.AddPlayer(Player.SoldierName.ToString());
+				// Team tracking
+				if (Player.TeamID == 1 && !TeamHuman.Contains(Player.SoldierName)) {
+					TeamHuman.Add(Player.SoldierName);
+					DebugWrite("OnListPlayers: added " + Player.SoldierName + " to TeamHuman (" + TeamHuman.Count + ")", 4);
+				}
+				if (Player.TeamID == 2 && !TeamZombie.Contains(Player.SoldierName)) {
+					TeamZombie.Add(Player.SoldierName);
+					DebugWrite("OnListPlayers: added " + Player.SoldierName + " to TeamZombie (" + TeamZombie.Count + ")", 4);
+				}					
 			}
 		}
 
@@ -527,6 +536,8 @@ namespace PRoConEvents
 
 		public override void OnPlayerTeamChange(string soldierName, int teamId, int squadId)
 		{
+			if (ZombieModeEnabled == false) return;
+
 			bool wasZombie = TeamZombie.Contains(soldierName);
 			bool wasHuman = TeamHuman.Contains(soldierName);
 
@@ -541,7 +552,8 @@ namespace PRoConEvents
 			string team = (wasHuman) ? "HUMAN" : "ZOMBIE";
 			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
 			
-			if (teamId == 1 && wasZombie) {
+			if (teamId == 1 && wasZombie) 
+			{
 				// Switching to human team is not allowed
 				TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // TBD - custom message
 				
@@ -552,7 +564,9 @@ namespace PRoConEvents
 				if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
 				if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
 				
-			} else if (teamId == 2 && wasHuman) {
+			} 
+			else if (teamId == 2 && wasHuman) 
+			{
 				// Switching to the zombie team is okay
 				FreshZombie.Add(soldierName);
 				
@@ -564,8 +578,11 @@ namespace PRoConEvents
 
 		public override void OnPlayerSpawned(string soldierName, Inventory spawnedInventory)
 		{
+			if (ZombieModeEnabled == false) return;
+
 			// Tell zombies they can only use hand to hand weapons
-			if (FreshZombie.Contains(soldierName)) {
+			if (FreshZombie.Contains(soldierName)) 
+			{
 				DebugWrite("OnPlayerSpawned " + soldierName + " is fresh zombie!", 3);
 				FreshZombie.Remove(soldierName);
 				TellPlayer("You are now a zombie! Use a knife only!", soldierName); // TBD - custom message
