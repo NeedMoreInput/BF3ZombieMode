@@ -102,6 +102,8 @@ namespace PRoConEvents
 			/* Pool of players to select first zombie from */
 			
 		private string PatientZero = null; // name of first zombie for the round
+		
+		private ZombieModePlayerState PlayerState = new ZombieModePlayerState();
 
 		#endregion
 
@@ -329,13 +331,21 @@ namespace PRoConEvents
 
 		public override void OnPlayerAuthenticated(string SoldierName, string guid)
 		{
+			// Comes after OnPlayerJoin
 			if (ZombieModeEnabled == false)
 				return;
 
-			DebugWrite("OnPlayerAuthenticated: " + SoldierName, 3);
+			DebugWrite("OnPlayerAuthenticated: " + SoldierName, 4);
 			
-			if (PlayerList.Count <= MaxPlayers)
+			if (PlayerList.Count <= MaxPlayers) 
+			{
+				DebugWrite("OnPlayerAuthenticated: making " + SoldierName + " human", 3);
+				MakeHuman(SoldierName);
+				
+				PlayerState.AddPlayer(SoldierName);
 				return;
+			}
+			
 
 			base.OnPlayerAuthenticated(SoldierName, guid);
 			
@@ -369,13 +379,11 @@ namespace PRoConEvents
 		
 		public override void OnPlayerJoin(string SoldierName)
 		{
+			// Comes before OnPlayerAuthenticated
 			if (ZombieModeEnabled)
 			{
-				DebugWrite("OnPlayerJoin: " + SoldierName, 3);
-				MakeHuman(SoldierName);
+				KillTracker.AddPlayer(SoldierName);
 			}
-
-			KillTracker.AddPlayer(SoldierName);
 		}
 		
 		public override void OnPlayerKilled(Kill info)
@@ -554,7 +562,7 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("Debug level = " + DebugLevel + " .", 5);
+			DebugWrite("Debug level = " + DebugLevel + " ..", 5);
 			
 			if (IsBetweenRounds)
 			{
@@ -693,13 +701,23 @@ namespace PRoConEvents
 				TellAll(PatientZero + " is the first zombie!"); // TBD - custom message
 			}
 			
+			int n = PlayerState.GetSpawnCount(soldierName);
+			
 			// Tell zombies they can only use hand to hand weapons
 			if (FreshZombie.Contains(soldierName)) 
 			{
 				DebugWrite("OnPlayerSpawned " + soldierName + " is fresh zombie!", 3);
 				FreshZombie.Remove(soldierName);
 				TellPlayer("You are now a zombie! Use a knife/defib/repair tool only!", soldierName); // TBD - custom message
+			} else if (PlayerState.GetWelcomeCount(soldierName) == 0) {
+				TellPlayer("Welcome to Zombie Mode! Type '" + CommandPrefix + "zrules' for instructions on how to play", soldierName); // TBD - custom message
+				PlayerState.SetWelcomeCount(soldierName, 1);
+			} else if (n == 0) {
+				if (!TeamHuman.Contains(soldierName)) ConsoleWarn("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
+				TellPlayer("You are a human! Shoot zombies, don't use explosives, don't let zombies get near you!", soldierName); // TBD - custom message
 			}
+			
+			PlayerState.SetSpawnCount(soldierName, n+1);
 		}
 
 		public override void OnLevelLoaded(string mapFileName, string Gamemode, int roundsPlayed, int roundsTotal)
@@ -718,6 +736,9 @@ namespace PRoConEvents
 			
 			// Reset patient zero
 			PatientZero = null;
+			
+			// Reset per-round player states
+			PlayerState.ResetPerRound();
 		}
 
 		public override void OnRoundOver(int winningTeamId)
@@ -1191,6 +1212,7 @@ namespace PRoConEvents
 			FreshZombie.Clear();
 			PatientZeroes.Clear();
 			Lottery.Clear();
+			PlayerState.ClearAll();
 			KnownPlayerCount = 0;
 			ServerSwitchedCount = 0;
 			PatientZero = null;
@@ -1324,7 +1346,63 @@ namespace PRoConEvents
 			return Kills[PlayerName].DeathsAsHuman;
 		}
 	}
+	
+	class APlayerState
+	{
+		// A bunch of counters and flags
+		
+		public int WelcomeCount = 0;
+		
+		public int SpawnCount = 0;
+	}
 
+	class ZombieModePlayerState
+	{
+		protected Dictionary<String, APlayerState> AllPlayerStates = new Dictionary<String, APlayerState>();
+		
+		public void AddPlayer(String soldierName)
+		{
+			if (AllPlayerStates.ContainsKey(soldierName)) return;
+			AllPlayerStates[soldierName] = new APlayerState();
+		}
+
+		public int GetWelcomeCount(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			return AllPlayerStates[soldierName].WelcomeCount;
+		}
+		
+		public void SetWelcomeCount(String soldierName, int n)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			AllPlayerStates[soldierName].WelcomeCount = n;
+		}
+		
+		public int GetSpawnCount(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			return AllPlayerStates[soldierName].SpawnCount;
+		}
+		
+		public void SetSpawnCount(String soldierName, int n)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			AllPlayerStates[soldierName].SpawnCount = n;
+		}
+		
+		public void ResetPerRound()
+		{
+			foreach (String key in AllPlayerStates.Keys)
+			{
+				SetSpawnCount(key, 0);
+			}
+		}
+		
+		public void ClearAll()
+		{
+			AllPlayerStates.Clear();
+		}
+	}
 }
 
 
