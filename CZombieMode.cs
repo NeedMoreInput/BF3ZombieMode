@@ -481,7 +481,22 @@ namespace PRoConEvents
 			}
 		}
 
-		public override void OnSquadChat(string PlayerName, String Message, int TeamId, int SquadId)
+		public override void OnGlobalChat(string PlayerName, string Message)
+		{
+			HandleChat(PlayerName, Message, -1, -1);
+		}
+
+		public override void OnTeamChat(string PlayerName, string Message, int TeamId)
+		{
+			HandleChat(PlayerName, Message, TeamId, -1);
+		}
+
+		public override void OnSquadChat(string PlayerName, string Message, int TeamId, int SquadId)
+		{
+			HandleChat(PlayerName, Message, TeamId, SquadId);
+		}
+		
+		public void HandleChat(string PlayerName, string Message, int TeamId, int SquadId)
 		{
 			if (!IsAdmin(PlayerName))
 				return;
