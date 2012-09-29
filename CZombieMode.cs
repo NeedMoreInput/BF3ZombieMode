@@ -40,13 +40,13 @@ namespace PRoConEvents
 
 		private string CommandPrefix = "!";
 
-		private int AnnounceDisplayLength = 3;
+		private int AnnounceDisplayLength = 10;
 
 		private bool MakeTeamsRequested = false;
 
 		private NoticeDisplayType AnnounceDisplayType = NoticeDisplayType.yell;
 
-		private int WarningDisplayLength = 10;
+		private int WarningDisplayLength = 15;
 
 		private List<String> AdminUsers = new List<String>();
 
@@ -86,6 +86,22 @@ namespace PRoConEvents
 		private List<String> TeamZombie = new List<String>();
 		
 		private List<String> FreshZombie = new List<String>();
+		
+		private bool IsBetweenRounds = false;
+		
+		private List<String> PatientZeroes = new List<String>();
+			/* PatientZeroes keeps track of all the players that have been selected to
+			   be the first zombie, to prevent the same player from being selected
+			   over and over again. */
+		
+		private int KnownPlayerCount = 0;
+		
+		private int ServerSwitchedCount = 0;
+		
+		private List<String> Lottery = new List<String>();
+			/* Pool of players to select first zombie from */
+			
+		private string PatientZero = null; // name of first zombie for the round
 
 		#endregion
 
@@ -434,6 +450,8 @@ namespace PRoConEvents
 			PlayerList = Players;
 			
 			DebugWrite("OnListPlayers: " + Players.Count + " players", 3);
+			
+			if (ZombieModeEnabled == false) return;	
 
 			foreach (CPlayerInfo Player in Players)
 			{
@@ -447,6 +465,11 @@ namespace PRoConEvents
 					TeamZombie.Add(Player.SoldierName);
 					DebugWrite("OnListPlayers: added " + Player.SoldierName + " to TeamZombie (" + TeamZombie.Count + ")", 4);
 				}					
+			}
+			
+			if (IsBetweenRounds)
+			{
+				KnownPlayerCount = TeamZombie.Count + TeamHuman.Count;
 			}
 		}
 
@@ -531,7 +554,12 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("Debug level = " + DebugLevel, 5);
+			DebugWrite("Debug level = " + DebugLevel + " .", 5);
+			
+			if (IsBetweenRounds)
+			{
+				KnownPlayerCount = TeamHuman.Count + TeamZombie.Count;
+			}
 		}
 
 		public override void OnPlayerTeamChange(string soldierName, int teamId, int squadId)
@@ -552,42 +580,152 @@ namespace PRoConEvents
 			string team = (wasHuman) ? "HUMAN" : "ZOMBIE";
 			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
 			
-			if (teamId == 1 && wasZombie) 
+			if (!IsBetweenRounds)
 			{
-				// Switching to human team is not allowed
-				TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // TBD - custom message
-				
-				KillPlayerAfterDelay(soldierName, AnnounceDisplayLength);
-				
-				ExecuteCommand("procon.protected.tasks.add", "MovePlayerAfterDelay", AnnounceDisplayLength.ToString(), "1", "1", "admin.movePlayer", soldierName, ZOMBIE_TEAM, BLANK_SQUAD, FORCE_MOVE);
+				if (teamId == 1 && wasZombie) // to humans
+				{
+					// Switching to human team is not allowed
+					TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // TBD - custom message
 
-				if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-				if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+					KillPlayerAfterDelay(soldierName, AnnounceDisplayLength);
+
+					ExecuteCommand("procon.protected.tasks.add", "MovePlayerAfterDelay", AnnounceDisplayLength.ToString(), "1", "1", "admin.movePlayer", soldierName, ZOMBIE_TEAM, BLANK_SQUAD, FORCE_MOVE);
+
+					if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+					if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+
+				} 
+				else if (teamId == 2 && wasHuman) // to zombies
+				{
+					// Switching to the zombie team is okay
+					FreshZombie.Add(soldierName);
+
+					if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+					if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+				}
+			} else { // between rounds, server is swapping teams
+				if (teamId == 1) // to humans
+				{
+					++ServerSwitchedCount;
+					
+					// Add to the lottery if eligible
+					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
+
+					if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
+					if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+				} 
+				else if (teamId == 2) // to zombies
+				{
+					++ServerSwitchedCount;
+
+					// Select as patient zero if eligible
+					if (!PatientZeroes.Contains(soldierName) && null == PatientZero)
+					{
+						PatientZero = soldierName;
+						if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+						if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+						DebugWrite("OnPlayerTeamChange: server selected " + PatientZero + " as first zombie!", 3);
+					}
+					else
+					{
+						// Switch back
+						MakeHuman(soldierName);
+					}
+				}
 				
-			} 
-			else if (teamId == 2 && wasHuman) 
-			{
-				// Switching to the zombie team is okay
-				FreshZombie.Add(soldierName);
-				
-				if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-				if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+				// When the server is done swapping players, process patient zero
+				if (ServerSwitchedCount >= KnownPlayerCount)
+				{
+					if (null == PatientZero)
+					{
+						if (Lottery.Count == 0)
+						{
+							// loop through players, adding to Lottery if eligible
+							foreach (CPlayerInfo p in PlayerList)
+							{
+								if (!PatientZeroes.Contains(p.SoldierName))
+								{
+									Lottery.Add(p.SoldierName);
+								}
+							}
+						}
+						
+						if (Lottery.Count == 0)
+						{
+							ConsoleWarn("OnPlayerTeamChange, can't find an eligible player for patient zero!");
+							PatientZeroes.Clear();
+							Lottery.Add(soldierName);
+						}
+						
+						Random rand = new Random();
+						int choice = (Lottery.Count == 1) ? 0 : (rand.Next(Lottery.Count));
+						PatientZero = Lottery[choice];
+						DebugWrite("OnPlayerTeamChange: lottery selected " + PatientZero + " as first zombie!", 3);
+					}
+					
+					DebugWrite("OnPlayerTeamChange: making " + PatientZero + " the first zombie!", 2);
+					
+					MakeZombie(PatientZero);
+					
+					if (PatientZeroes.Count > (KnownPlayerCount/2)) PatientZeroes.Clear();
+					
+					PatientZeroes.Add(PatientZero);
+					
+					ServerSwitchedCount = 0;
+				}
+
 			}
 		}
 
 
 		public override void OnPlayerSpawned(string soldierName, Inventory spawnedInventory)
 		{
-			if (ZombieModeEnabled == false) return;
-
+			if (ZombieModeEnabled == false) 
+			{
+				IsBetweenRounds = false;
+				return;
+			}
+			
+			// Check if this is the first spawn of the round
+			if (IsBetweenRounds) {
+				IsBetweenRounds = false;
+				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 3);
+				TellAll(PatientZero + " is the first zombie!"); // TBD - custom message
+			}
+			
 			// Tell zombies they can only use hand to hand weapons
 			if (FreshZombie.Contains(soldierName)) 
 			{
 				DebugWrite("OnPlayerSpawned " + soldierName + " is fresh zombie!", 3);
 				FreshZombie.Remove(soldierName);
-				TellPlayer("You are now a zombie! Use a knife only!", soldierName); // TBD - custom message
+				TellPlayer("You are now a zombie! Use a knife/defib/repair tool only!", soldierName); // TBD - custom message
 			}
 		}
+
+		public override void OnLevelLoaded(string mapFileName, string Gamemode, int roundsPlayed, int roundsTotal)
+		{
+			DebugWrite("OnLevelLoaded, updating player list", 3);
+			
+			// We have 5 seconds before the server swaps teams, make sure we are up to date
+			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+			
+			// Reset the team switching counter
+			ServerSwitchedCount = 0;
+			
+			// Reset the utility lists
+			FreshZombie.Clear();
+			Lottery.Clear();
+			
+			// Reset patient zero
+			PatientZero = null;
+		}
+
+		public override void OnRoundOver(int winningTeamId)
+		{
+			DebugWrite("OnRoundOver, IsBetweenRounds set to True", 4);
+			IsBetweenRounds = true;
+		}
+
 
 		#endregion
 
@@ -605,7 +743,9 @@ namespace PRoConEvents
 				"OnPlayerKickedByAdmin",
 				"OnServerInfo",
 				"OnPlayerTeamChange",
-				"OnPlayerSpawned");
+				"OnPlayerSpawned",
+				"OnLevelLoaded"
+				);
 		}
 
 		public void OnPluginEnable()
@@ -927,8 +1067,6 @@ namespace PRoConEvents
 			Announce(String.Concat(Carrier, " just infected ", Victim)); // TBD - custom message
 
 			MakeZombie(Victim);
-			
-			FreshZombie.Add(Victim);
 		}
 
 		private void MakeHuman(string PlayerName)
@@ -951,6 +1089,8 @@ namespace PRoConEvents
 			
 			if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
 			if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);			
+			
+			FreshZombie.Add(PlayerName);
 		}
 
 		#endregion
@@ -1015,12 +1155,14 @@ namespace PRoConEvents
 
 		private void Announce(string Message)
 		{
+			if (IsBetweenRounds) return;
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), AnnounceDisplayType.ToString());
 		}
 
 		private void TellAll(string Message)
 		{
 			// Yell and say
+			if (IsBetweenRounds) return;
 			Announce(Message);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "all");
 		}
@@ -1028,6 +1170,7 @@ namespace PRoConEvents
 		private void TellTeam(string Message, string TeamId)
 		{
 			// Yell and say
+			if (IsBetweenRounds) return;
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "team", TeamId);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "team", TeamId);
 		}
@@ -1035,6 +1178,7 @@ namespace PRoConEvents
 		private void TellPlayer(string Message, string SoldierName)
 		{
 			// Yell and say
+			if (IsBetweenRounds) return;
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "player", SoldierName);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "player", SoldierName);
 		}
@@ -1042,6 +1186,14 @@ namespace PRoConEvents
 		private void Reset()
 		{
 			PlayerList.Clear();
+			TeamHuman.Clear();
+			TeamZombie.Clear();
+			FreshZombie.Clear();
+			PatientZeroes.Clear();
+			Lottery.Clear();
+			KnownPlayerCount = 0;
+			ServerSwitchedCount = 0;
+			PatientZero = null;
 		}
 
 		private enum MessageType { Warning, Error, Exception, Normal };
