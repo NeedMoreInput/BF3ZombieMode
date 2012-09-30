@@ -75,10 +75,6 @@ namespace PRoConEvents
 
 		private bool ZombieKillLimitEnabled = true;
 
-		private int HumanBulletDamage = 0;
-
-		private int ZombieBulletDamage = 0;
-
 		private bool InfectSuicides = true;
 		
 		private List<String> TeamHuman = new List<String>();
@@ -108,6 +104,19 @@ namespace PRoConEvents
 		#endregion
 
 
+		#region DamagePercentageVars
+
+		int Against1Or2Zombies = 5;  // 4+ to 1 ratio humans(>=75%]:zombies
+
+		int AgainstAFewZombies = 10; // 4:1 to 3:2 ratio humans(75%-60%]:zombies
+
+		int AgainstEqualNumbers = 15; // 3:2 to 2:3 ratio humans(60%-40%]:zombies
+
+		int AgainstManyZombies = 30; // 2:3 to 1:4 ratio humans(40%-25%):zombies
+
+		int AgainstCountlessZombies = 100; // 1 to 4+ ratio humans[<=25%):zombies
+
+		#endregion
 
 		private string[] ZombieWeapons = 
 	    {
@@ -448,7 +457,9 @@ namespace PRoConEvents
 				KillTracker.HumanKilled(KillerName, VictimName);
 
 				if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
+				{
 					Infect(KillerName, VictimName);
+				}
 			}
 
 		}
@@ -856,7 +867,16 @@ namespace PRoConEvents
 			
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicide Players", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
+			
+			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against 1 Or 2 Zombies", Against1Or2Zombies.GetType(), Against1Or2Zombies));
 
+			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against A Few Zombies", AgainstAFewZombies.GetType(), AgainstAFewZombies));
+
+			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against Equal Numbers", AgainstEqualNumbers.GetType(), AgainstEqualNumbers));
+
+			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against Many Zombies", AgainstManyZombies.GetType(), AgainstManyZombies));
+
+			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against Countless Zombies", AgainstCountlessZombies.GetType(), AgainstCountlessZombies));
 
 			foreach (PRoCon.Core.Players.Items.Weapon Weapon in WeaponDictionaryByLocalizedName.Values)
 			{
@@ -1103,6 +1123,8 @@ namespace PRoConEvents
 			Announce(String.Concat(Carrier, " just infected ", Victim)); // TBD - custom message
 
 			MakeZombie(Victim);
+			
+			AdaptDamage();
 		}
 
 		private void MakeHuman(string PlayerName)
@@ -1172,6 +1194,40 @@ namespace PRoConEvents
 				return true;
 			
 			return false;
+		}
+		
+		private void AdaptDamage()
+		{
+			double HumanCount = (TeamHuman.Count == 0) ? 1 : TeamHuman.Count;
+			double ZombieCount = (TeamZombie.Count == 0) ? 1 : TeamZombie.Count;
+			double RatioHumansToZombies = (HumanCount / ZombieCount) * 100.0;
+			int BulletDamage = 5;
+			
+			
+			if (RatioHumansToZombies >= 75.0)
+			{
+				BulletDamage = Against1Or2Zombies;
+			}
+			else if (RatioHumansToZombies < 75.0 && RatioHumansToZombies >= 60.0)
+			{
+				BulletDamage = AgainstAFewZombies;
+			}
+			else if (RatioHumansToZombies < 60.0 && RatioHumansToZombies >= 40.0)
+			{
+				BulletDamage = AgainstEqualNumbers;
+			}
+			else if (RatioHumansToZombies < 40.0 && RatioHumansToZombies > 25.0)
+			{
+				BulletDamage = AgainstManyZombies;
+			}
+			else // <= 25.0
+			{
+				BulletDamage = AgainstCountlessZombies;
+			}
+			
+			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
+			DebugWrite("AdaptDamage: Humans(" + HumanCount + "):Zombies(" + ZombieCount + "), bullet damage set to " + BulletDamage + "%", 3);
+
 		}
 
 		#endregion
