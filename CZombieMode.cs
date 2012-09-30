@@ -71,7 +71,7 @@ namespace PRoConEvents
 
 		private int DeathsNeededToBeInfected = 1;
 
-		private int ZombiesKilledToSurvive = 50;
+		private int ZombiesKilledToSurvive = 50; // TBD: to be made adaptive
 
 		private bool ZombieKillLimitEnabled = true;
 
@@ -100,6 +100,8 @@ namespace PRoConEvents
 		private string PatientZero = null; // name of first zombie for the round
 		
 		private ZombieModePlayerState PlayerState = new ZombieModePlayerState();
+		
+		private bool CountingDownToNextRound = false;
 
 		#endregion
 
@@ -397,7 +399,7 @@ namespace PRoConEvents
 		
 		public override void OnPlayerKilled(Kill info)
 		{
-			if (ZombieModeEnabled == false)
+			if (ZombieModeEnabled == false || CountingDownToNextRound == true)
 				return;
 
 			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + info.DamageType, 3);
@@ -460,6 +462,25 @@ namespace PRoConEvents
 				{
 					Infect(KillerName, VictimName);
 				}
+			}
+			
+			// Victory conditions
+			
+			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive) // TBD: to be made adaptive
+			{
+				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!";
+				DebugWrite("^2" + msg + "^0", 1);
+				TellAll(msg);
+				CountingDownToNextRound = true;
+				// TBD need to do countdown to next round, display stats?
+			}
+			else if (TeamHuman.Count == 0 && TeamZombie.Count > MinimumZombies)
+			{
+				string msg = "ZOMBIES WIN, all humans infected!";
+				DebugWrite("^7" + msg + "^0", 1);
+				TellAll(msg);
+				CountingDownToNextRound = true;
+				// TBD need to do countdown to next round, display stats?
 			}
 
 		}
@@ -765,6 +786,9 @@ namespace PRoConEvents
 			
 			// Reset per-round player states
 			PlayerState.ResetPerRound();
+			
+			// Reset countdown
+			CountingDownToNextRound = false;
 		}
 
 		public override void OnRoundOver(int winningTeamId)
@@ -1287,6 +1311,7 @@ namespace PRoConEvents
 			KnownPlayerCount = 0;
 			ServerSwitchedCount = 0;
 			PatientZero = null;
+			CountingDownToNextRound = false;
 		}
 
 		private enum MessageType { Warning, Error, Exception, Normal };
