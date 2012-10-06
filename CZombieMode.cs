@@ -38,7 +38,7 @@ namespace PRoConEvents
 		
 		private int DebugLevel = 3; // 3 while in development, 2 when released
 
-		private string CommandPrefix = "!";
+		private string CommandPrefix = "!zombie";
 
 		private int AnnounceDisplayLength = 10;
 
@@ -468,7 +468,7 @@ namespace PRoConEvents
 			
 			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive) // TBD: to be made adaptive
 			{
-				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!";
+				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // TBD - custom message
 				DebugWrite("^2" + msg + "^0", 1);
 				TellAll(msg);
 				CountingDownToNextRound = true;
@@ -476,7 +476,7 @@ namespace PRoConEvents
 			}
 			else if (TeamHuman.Count == 0 && TeamZombie.Count > MinimumZombies)
 			{
-				string msg = "ZOMBIES WIN, all humans infected!";
+				string msg = "ZOMBIES WIN, all humans infected!"; // TBD - custom message
 				DebugWrite("^7" + msg + "^0", 1);
 				TellAll(msg);
 				CountingDownToNextRound = true;
@@ -532,17 +532,44 @@ namespace PRoConEvents
 		{
 			if (!IsAdmin(PlayerName))
 				return;
+				
+			String CleanMessage = Message.ToLower().Trim();
 
-			List<string> MessagePieces = new List<string>(Message.Split(' '));
+			List<string> MessagePieces = new List<string>(CleanMessage.Split(' '));
 
 			String Command = MessagePieces[0];
 
-			if (!Command.StartsWith(CommandPrefix))
+			if (!Command.StartsWith(CommandPrefix.ToLower()))
 				return;
 				
-			DebugWrite("Command: " + Message, 3);
+			DebugWrite("Command: " + Message + " => " + CleanMessage, 3);
+			
+			if (CommandPrefix.Length > 1 && Command == CommandPrefix)
+			{
+				/*
+				If Message is: !zombie command arg1 arg2
+				Then remove "!zombie" from the MessagePieces and reset Command
+				to be the value of 'command'.
+				*/
+				MessagePieces.Remove(CommandPrefix);
+				Command = MessagePieces[0];
+			}
+			else
+			{
+				/*
+				If command is: !zcmd arg1 arg2
+				Then remove "!z" from Command
+				*/
+				Match CommandMatch = Regex.Match(Command, "^" + CommandPrefix + @"([^\s]+)", RegexOptions.IgnoreCase);
+				if (CommandMatch.Success)
+				{
+					Command = CommandMatch.Groups[1].Value;
+				}
+			}
+			
+			DebugWrite("Command without prefix: " + Command, 4);
 
-			switch (Command.TrimStart(CommandPrefix.ToCharArray()))
+			switch (Command)
 			{
 				case "infect":
 					if (MessagePieces.Count != 2) return;
@@ -1261,7 +1288,14 @@ namespace PRoConEvents
 
 		private bool IsAdmin(string PlayerName)
 		{
-			return AdminUsers.IndexOf(PlayerName) >= 0 ? true : false;
+			bool AdminFlag = AdminUsers.Contains(PlayerName);
+			if (AdminFlag)
+			{
+				TellAll(PlayerName + " is an admin");
+				DebugWrite("IsAdmin: " + PlayerName + " is an admin", 3);
+			}
+			// DEBUG: return AdminFlag;
+			return true; // DEBUG
 		}
 
 		private void ConsoleWrite(string str)
