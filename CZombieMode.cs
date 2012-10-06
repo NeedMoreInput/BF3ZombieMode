@@ -368,7 +368,7 @@ namespace PRoConEvents
 			{
 				try
 				{
-					Thread.Sleep(10000);
+					Sleep(10);
 					ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Sorry, zombie mode is enabled and all slots are full :( Please join when there are less than ", MaxPlayers.ToString(), " players"));
 					while (true)
 					{
@@ -473,16 +473,14 @@ namespace PRoConEvents
 				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // TBD - custom message
 				DebugWrite("^2" + msg + "^0", 1);
 				TellAll(msg);
-				CountingDownToNextRound = true;
-				// TBD need to do countdown to next round, display stats?
+				CountdownNextRound(HUMAN_TEAM);
 			}
 			else if (TeamHuman.Count == 0 && TeamZombie.Count > MinimumZombies)
 			{
 				string msg = "ZOMBIES WIN, all humans infected!"; // TBD - custom message
 				DebugWrite("^7" + msg + "^0", 1);
 				TellAll(msg);
-				CountingDownToNextRound = true;
-				// TBD need to do countdown to next round, display stats?
+				CountdownNextRound(ZOMBIE_TEAM);
 			}
 
 		}
@@ -1065,6 +1063,44 @@ namespace PRoConEvents
 		{
 			ExecuteCommand("procon.protected.send", "mapList.runNextRound");
 		}
+		
+		private void CountdownNextRound(string WinningTeam)
+		{
+			CountingDownToNextRound = true;
+			
+			DebugWrite("CountdownNextRound started", 2);
+			
+			ThreadStart countdown = delegate
+			{
+				try
+				{
+					Sleep(AnnounceDisplayLength);
+					TellAll("Next round will start in " + (2*AnnounceDisplayLength) + " seconds");
+					Sleep(AnnounceDisplayLength);
+					TellAll("Next round will start in " + (AnnounceDisplayLength) + " seconds");
+					Sleep(AnnounceDisplayLength);
+					TellAll("Next round will start now!");
+					Sleep(5);
+					
+					DebugWrite("CountdownNextRound thread: end round with winner teamID = " + "WinningTeam", 3);
+					ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
+				}
+				catch (Exception e)
+				{
+					ConsoleException("countdown: " + e.ToString());
+				}
+				finally
+				{
+					CountingDownToNextRound = false;
+				}
+			};
+
+			Thread t = new Thread(countdown);
+
+			t.Start();
+			
+			Thread.Sleep(2);
+		}
 
 		#endregion
 
@@ -1104,11 +1140,6 @@ namespace PRoConEvents
 		}
 
 		#endregion
-
-		private void Rules(String PlayerName)
-		{
-
-		}
 
 		#region TeamMethods
 
@@ -1363,14 +1394,13 @@ namespace PRoConEvents
 					{
 						RuleNum = "R" + i + " of " + Rules.Count + ") ";
 						i = i + 1;
-						Thread.Sleep(Delay);
+						Sleep(Delay);
 						TellPlayer(r, SoldierName);
 					}
 				}
 				catch (Exception e)
 				{
 					ConsoleException("tellRules: " + e.ToString());
-
 				}
 				finally
 				{
@@ -1469,6 +1499,11 @@ namespace PRoConEvents
 		private void DebugWrite(string msg, int level)
 		{
 			if (DebugLevel >= level) ConsoleLog(msg, MessageType.Normal);
+		}
+		
+		private void Sleep(int Seconds)
+		{
+			Thread.Sleep(Seconds * 1000);
 		}
 
 		#endregion
