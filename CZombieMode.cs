@@ -102,6 +102,8 @@ namespace PRoConEvents
 		private ZombieModePlayerState PlayerState = new ZombieModePlayerState();
 		
 		private bool CountingDownToNextRound = false;
+		
+		private SynchronizedNumbers NumRulesThreads  = new SynchronizedNumbers();
 
 		#endregion
 
@@ -379,7 +381,7 @@ namespace PRoConEvents
 				}
 				catch (System.Exception e)
 				{
-
+					ConsoleException("kickPlayer: " + e.ToString());
 				}
 			};
 
@@ -596,6 +598,7 @@ namespace PRoConEvents
 						ZombieModeEnabled = false;
 					break;
 				case "rules":
+					TellRules(PlayerName);
 					break;
 				case "warn":
 					if (MessagePieces.Count < 3) return;
@@ -784,10 +787,12 @@ namespace PRoConEvents
 				FreshZombie.Remove(soldierName);
 				TellPlayer("You are now a zombie! Use a knife/defib/repair tool only!", soldierName); // TBD - custom message
 			} else if (PlayerState.GetWelcomeCount(soldierName) == 0) {
-				TellPlayer("Welcome to Zombie Mode! Type '" + CommandPrefix + "zrules' for instructions on how to play", soldierName); // TBD - custom message
+				String Separator = " ";
+				if (CommandPrefix.Length == 1) Separator = "";
+				TellPlayer("Welcome to Zombie Mode! Type '" + CommandPrefix + Separator + "rules' for instructions on how to play", soldierName); // TBD - custom message
 				PlayerState.SetWelcomeCount(soldierName, 1);
 			} else if (n == 0) {
-				if (!TeamHuman.Contains(soldierName)) ConsoleWarn("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
+				if (!TeamHuman.Contains(soldierName)) ConsoleError("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
 				TellPlayer("You are a human! Shoot zombies, don't use explosives, don't let zombies get near you!", soldierName); // TBD - custom message
 			}
 			
@@ -1033,7 +1038,7 @@ namespace PRoConEvents
 				}
 				catch (System.Exception e)
 				{
-
+					ConsoleException("MyThread: " + e.ToString());
 				}
 			};
 
@@ -1332,6 +1337,77 @@ namespace PRoConEvents
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "player", SoldierName);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "player", SoldierName);
 		}
+				
+		private void TellRules(string SoldierName)
+		{
+			int Delay = 5;
+			List<String> Rules = new List<String>();
+			// TBD - custom message
+			Rules.Add("US team are humans, RU are zombies");
+			Rules.Add("Round starts with only one zombie");
+			Rules.Add("Zombies are hard to kill");
+			Rules.Add("Zombies use knife/defib/repair tool only!");
+			Rules.Add("Humans use guns only, no explosives!");
+			Rules.Add("Every human a zombie kills becomes a zombie!");
+			Rules.Add("Humans win by killing " + ZombiesKilledToSurvive + " zombies");
+			Rules.Add("Zombies win by killing all humans");
+			
+			String RuleNum = null;
+			int i = 1;
+			
+			ThreadStart tellRules = delegate
+			{
+				try
+				{
+					foreach (String r in Rules)
+					{
+						RuleNum = "R" + i + " of " + Rules.Count + ") ";
+						i = i + 1;
+						Thread.Sleep(Delay);
+						TellPlayer(r, SoldierName);
+					}
+				}
+				catch (Exception e)
+				{
+					ConsoleException("tellRules: " + e.ToString());
+
+				}
+				finally
+				{
+					lock (NumRulesThreads)
+					{
+						NumRulesThreads.IntVal = NumRulesThreads.IntVal - 1;
+						if (NumRulesThreads.IntVal < 0) NumRulesThreads.IntVal = 0;
+					}
+				}
+			};
+			
+			bool IsTooMany = false;
+			
+			lock (NumRulesThreads)
+			{
+				if (NumRulesThreads.IntVal >= 4) 
+				{
+					IsTooMany = true;
+				}
+				else
+				{
+					NumRulesThreads.IntVal = NumRulesThreads.IntVal + 1;
+				}
+			}
+			
+			if (IsTooMany)
+			{
+				TellPlayer("Rules plugin is busy, try again in 15 seconds", SoldierName);
+				return;
+			}
+			
+			Thread t = new Thread(tellRules);
+
+			t.Start();
+			
+			Thread.Sleep(2);
+		}
 
 		private void Reset()
 		{
@@ -1532,6 +1608,12 @@ namespace PRoConEvents
 		{
 			AllPlayerStates.Clear();
 		}
+	}
+	
+	class SynchronizedNumbers
+	{
+		public int IntVal = 0;
+		public double DoubleVal = 0;
 	}
 }
 
