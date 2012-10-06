@@ -51,6 +51,8 @@ namespace PRoConEvents
 		private List<String> PlayerKickQueue = new List<String>();
 
 		private ZombieModeKillTracker KillTracker = new ZombieModeKillTracker();
+		
+		private bool RematchEnabled = true; // true: round does not end, false: round ends
 
 		#endregion
 
@@ -607,6 +609,11 @@ namespace PRoConEvents
 					MakeHuman(MessagePieces[1]);
 					break;
 				case "rematch":
+					if (!RematchEnabled)
+					{
+						TellPlayer("Rematch mode is not enabled, command ignored!", PlayerName);
+						return;
+					}
 					MakeTeamsRequest(PlayerName);
 					break;
 				case "restart":
@@ -979,7 +986,9 @@ namespace PRoConEvents
 			lstReturn.Add(new CPluginVariable("Game Settings|Deaths Needed To Be Infected", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
 			
 
-			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicide Players", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
+			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicides", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
+
+			lstReturn.Add(new CPluginVariable("Game Settings|Rematch Enabled", typeof(enumBoolOnOff), RematchEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against 1 Or 2 Zombies", Against1Or2Zombies.GetType(), Against1Or2Zombies));
 
@@ -1125,6 +1134,7 @@ namespace PRoConEvents
 		
 		private void CountdownNextRound(string WinningTeam)
 		{
+			
 			CountingDownToNextRound = true;
 			
 			DebugWrite("CountdownNextRound started", 2);
@@ -1133,16 +1143,28 @@ namespace PRoConEvents
 			{
 				try
 				{
-					Sleep(AnnounceDisplayLength);
-					TellAll("Next round will start in " + (2*AnnounceDisplayLength) + " seconds");
-					Sleep(AnnounceDisplayLength);
-					TellAll("Next round will start in " + (AnnounceDisplayLength) + " seconds");
-					Sleep(AnnounceDisplayLength);
-					TellAll("Next round will start now!");
-					Sleep(5);
+					if (RematchEnabled)
+					{
+						String Separator = " ";
+						if (CommandPrefix.Length == 1) Separator = "";
+						TellAll("Type '" + CommandPrefix + Separator + " rematch' to start another match in the same round without changing the map"); // TBD - custom message
+						
+						DebugWrite("CountdownNextRound ended with rematch mode enabled", 2);
+					}
+					else
+					{
+						Sleep(AnnounceDisplayLength);
+						TellAll("Next round will start in " + (2*AnnounceDisplayLength) + " seconds");
+						Sleep(AnnounceDisplayLength);
+						TellAll("Next round will start in " + (AnnounceDisplayLength) + " seconds");
+						Sleep(AnnounceDisplayLength);
+						TellAll("Next round will start now!");
+						Sleep(5);
+						
+						DebugWrite("CountdownNextRound thread: end round with winner teamID = " + "WinningTeam", 3);
+						ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
+					}
 					
-					DebugWrite("CountdownNextRound thread: end round with winner teamID = " + "WinningTeam", 3);
-					ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
 				}
 				catch (Exception e)
 				{
