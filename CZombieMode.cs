@@ -107,7 +107,7 @@ namespace PRoConEvents
 			Playing, 		// Playing a match
 			CountingDown,	// Match over, counting down to next round/match
 			BetweenRounds,	// Between map levels/rounds
-			NeedSpawn		// For rematch, need first spawn to start playing
+			NeedSpawn		// Ready to play next match, waiting for spawn
 		};
 		
 		private GState GameState = GState.Idle;
@@ -355,6 +355,7 @@ namespace PRoConEvents
 			if (ZombieModeEnabled)
 			{
 				KillTracker.AddPlayer(SoldierName);
+				RequestPlayersList();
 			}
 			else
 			{
@@ -451,22 +452,27 @@ namespace PRoConEvents
 			
 			String InfectMessage = null;
 			
-			int RemainingHumans = TeamHuman.Count - 1;
+			int RemainingHumans = 0;
 			
-			if (RemainingHumans == 0) 
+			lock (TeamHuman)
 			{
-				InfectMessage = "*** Only " + RemainingHumans + " humans left!"; // TBD - custom message
+				RemainingHumans = TeamHuman.Count - 1;
+			}
+			
+			if (RemainingHumans > 0) 
+			{
+				InfectMessage = "*** Only " + RemainingHumans + " humans left!"; // $$$ - custom message
 			}
 			else
 			{
-				InfectMessage = "*** No humans left!"; // TBD - custom message
+				InfectMessage = "*** No humans left!"; // $$$ - custom message
 			}
 
 			if (ValidateWeapon(info.DamageType, KillerTeam) == false)
 			{
 				DebugWrite(String.Concat(KillerName, " invalid kill with ", info.DamageType, "!"), 2);
 
-				KillPlayer(KillerName, "Bad weapon choice!"); // TBD - custom message
+				KillPlayer(KillerName, "Bad weapon choice!"); // $$$ - custom message
 
 				return;
 			}
@@ -479,7 +485,7 @@ namespace PRoConEvents
 
 				DebugWrite(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", DamageType), 3);
 				
-				TellAll("*** Humans killed " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies needed to win!"); // TBD - custom message
+				TellAll("*** Humans killed " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies needed to win!"); // $$$ - custom message
 			}
 			else if (KillerTeam == ZOMBIE_TEAM && VictimTeam == HUMAN_TEAM)
 			{
@@ -518,17 +524,27 @@ namespace PRoConEvents
 			
 			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive) // TBD: to be made adaptive
 			{
-				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // TBD - custom message
+				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
 				DebugWrite("^2" + msg + "^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
 			}
-			else if (TeamHuman.Count == 0 && TeamZombie.Count > MinimumZombies)
+			else 
 			{
-				string msg = "ZOMBIES WIN, all humans infected!"; // TBD - custom message
-				DebugWrite("^7" + msg + "^0", 1);
-				TellAll(msg);
-				CountdownNextRound(ZOMBIE_TEAM);
+				int Surviving = 0;
+				int Infecteds = 0;
+				lock (TeamHuman)
+				{
+					Surviving = TeamHuman.Count;
+					Infecteds = TeamZombie.Count;
+				}
+				if (Surviving == 0 && Infecteds > MinimumZombies)
+					{
+						string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
+						DebugWrite("^7" + msg + "^0", 1);
+						TellAll(msg);
+						CountdownNextRound(ZOMBIE_TEAM);
+					}
 			}
 
 		}
@@ -542,26 +558,58 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 			
-			TeamHuman.Clear();
-			TeamZombie.Clear();
-
+			List<String> HumanCensus = new List<String>();
+			List<String> ZombieCensus = new List<String>();
+			
 			foreach (CPlayerInfo Player in Players)
 			{
 				KillTracker.AddPlayer(Player.SoldierName.ToString());
 				// Team tracking
-				if (Player.TeamID == 1 && !TeamHuman.Contains(Player.SoldierName)) {
-					TeamHuman.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: added " + Player.SoldierName + " to TeamHuman (" + TeamHuman.Count + ")", 7);
+				if (Player.TeamID == 1) {
+					HumanCensus.Add(Player.SoldierName);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 7);
 				}
-				if (Player.TeamID == 2 && !TeamZombie.Contains(Player.SoldierName)) {
-					TeamZombie.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: added " + Player.SoldierName + " to TeamZombie (" + TeamZombie.Count + ")", 7);
+				if (Player.TeamID == 2) {
+					ZombieCensus.Add(Player.SoldierName);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 7);
 				}					
 			}
 			
+			bool SomeoneMoved = false;
+			
+			lock (TeamHuman)
+			{
+				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
+				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
+				
+				if (SomeoneMoved)
+				{
+					TeamHuman.Clear();
+					TeamHuman.AddRange(HumanCensus);
+					TeamZombie.Clear();
+					TeamZombie.AddRange(ZombieCensus);
+				}
+			}
+			
+			if (SomeoneMoved)
+			{
+				DebugWrite("OnListPlayers: move completed, TeamHuman & TeamZombie updated", 3);
+			}
+						
 			if (GameState == GState.BetweenRounds)
 			{
-				KnownPlayerCount = TeamZombie.Count + TeamHuman.Count;
+				// Between rounds, force update
+				lock (TeamHuman)
+				{
+					if (!SomeoneMoved)
+					{
+						TeamHuman.Clear();
+						TeamHuman.AddRange(HumanCensus);
+						TeamZombie.Clear();
+						TeamZombie.AddRange(ZombieCensus);
+					}
+					KnownPlayerCount = TeamZombie.Count + TeamHuman.Count;
+				}
 			}
 		}
 
@@ -630,7 +678,7 @@ namespace PRoConEvents
 						return;
 					}
 					if (MessagePieces.Count != 2) return;
-					Infect("Admin", MessagePieces[1]);
+					Infect("Admin", MessagePieces[1]); // Does TellAll
 					break;
 				case "heal":
 					if (!IsAdmin(PlayerName))
@@ -639,6 +687,7 @@ namespace PRoConEvents
 						return;
 					}
 					if (MessagePieces.Count != 2) return;
+					TellPlayer("Attempting move of " + MessagePieces[1] + " to human team", PlayerName, false);
 					MakeHuman(MessagePieces[1]);
 					break;
 				case "rematch":
@@ -652,6 +701,7 @@ namespace PRoConEvents
 						RematchEnabled = true;
 					else if (MessagePieces[1] == "off")
 						RematchEnabled = false;
+					TellPlayer("RematchEnabled is now " + RematchEnabled, PlayerName, false);
 					break;
 				case "restart":
 					if (!IsAdmin(PlayerName))
@@ -660,6 +710,17 @@ namespace PRoConEvents
 						return;
 					}
 					RestartRound();
+					break;
+				case "force":
+					// Force a match/round to start
+					if (!IsAdmin(PlayerName))
+					{
+						TellPlayer("Only admins can use that command!", PlayerName);
+						return;
+					}
+					TellAll("Admin has forced the start of a new match ...");
+					HaltMatch();
+					CountdownNextRound(ZOMBIE_TEAM);
 					break;
 				case "next":
 					if (!IsAdmin(PlayerName))
@@ -680,6 +741,7 @@ namespace PRoConEvents
 						ZombieModeEnabled = true;
 					else if (MessagePieces[1] == "off")
 						ZombieModeEnabled = false;
+					TellPlayer("ZombieModeEnabled is now " + ZombieModeEnabled, PlayerName, false);
 					break;
 				case "rules":
 					TellRules(PlayerName);
@@ -690,6 +752,7 @@ namespace PRoConEvents
 
 					DebugWrite(WarningMessage, 1);
 					Warn(MessagePieces[1], WarningMessage);
+					TellPlayer("Warning sent to " + MessagePieces[1], PlayerName, false);
 					break;
 
 				case "kill":
@@ -703,6 +766,7 @@ namespace PRoConEvents
 
 					DebugWrite(KillMessage, 1);
 					KillPlayer(MessagePieces[1], KillMessage);
+					TellPlayer("Killing " + MessagePieces[1], PlayerName, false);
 					break;
 
 				case "kick":
@@ -715,6 +779,7 @@ namespace PRoConEvents
 					string KickMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 
 					KickPlayer(MessagePieces[1], KickMessage);
+					TellPlayer("Kicking " + MessagePieces[1], PlayerName, false);
 					break;
 				case "status":
 					// TBD
@@ -736,7 +801,7 @@ namespace PRoConEvents
 					}
 					else
 					{
-						TellPlayer("Commands: infect, heal, rematch, restart, next, mode kill, kick, rules, help, status, warn", PlayerName);
+						TellPlayer("Commands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, warn", PlayerName);
 					}
 					break;
 			}
@@ -746,12 +811,15 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("Debug level = " + DebugLevel + " ...", 7);
+			DebugWrite("Debug level = " + DebugLevel + " ....", 7);
 			DebugWrite("GameState = " + GameState, 5);
 			
 			if (GameState == GState.BetweenRounds)
 			{
-				KnownPlayerCount = TeamHuman.Count + TeamZombie.Count;
+				lock (TeamHuman)
+				{
+					KnownPlayerCount = TeamHuman.Count + TeamZombie.Count;
+				}
 			}
 		}
 
@@ -760,8 +828,14 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 
-			bool wasZombie = TeamZombie.Contains(soldierName);
-			bool wasHuman = TeamHuman.Contains(soldierName);
+			bool wasZombie = false;
+			bool wasHuman = false;
+
+			lock (TeamHuman)
+			{
+				wasZombie = TeamZombie.Contains(soldierName);
+				wasHuman = TeamHuman.Contains(soldierName);
+			}
 
 			// Ignore squad changes within team
 			if (teamId == 1 && wasHuman) return;
@@ -782,12 +856,15 @@ namespace PRoConEvents
 				if (teamId == 1 && wasZombie) // to humans
 				{
 					// Switching to human team is not allowed
-					TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // TBD - custom message
+					TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // $$$ - custom message
 
 					ForceMove(soldierName, ZOMBIE_TEAM);
 
-					if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-					if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+					lock (TeamHuman)
+					{
+						if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+						if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+					}
 
 				} 
 				else if (teamId == 2 && wasHuman) // to zombies
@@ -795,8 +872,11 @@ namespace PRoConEvents
 					// Switching to the zombie team is okay
 					FreshZombie.Add(soldierName);
 
-					if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-					if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+					lock (TeamHuman)
+					{
+						if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+						if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+					}
 				}
 				
 			} else if (GameState == GState.BetweenRounds) { // server is swapping teams
@@ -809,9 +889,12 @@ namespace PRoConEvents
 					
 					// Add to the lottery if eligible
 					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
-
-					if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
-					if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+					
+					lock (TeamHuman)
+					{
+						if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
+						if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+					}
 				} 
 				else if (teamId == 2) // to zombies
 				{
@@ -865,8 +948,12 @@ namespace PRoConEvents
 					
 					ServerSwitchedCount = 0;
 				}
-
+				/*
+				GameState stays in BetweenRounds state because we don't know when the
+				actual round starts until a player spawns. See OnPlayerSpawned.
+				*/
 			}
+			
 		}
 
 
@@ -878,11 +965,35 @@ namespace PRoConEvents
 				return;
 			}
 			
-			// Check if this is the first spawn of the round
-			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn) {
+			// Check if we have enough players spawned
+			int Need = MinimumHumans + MinimumZombies;
+			if (PlayerList.Count < Need)
+			{
+				if (GameState == GState.Playing)
+				{
+					TellAll("Not enough players left to finish match ... MATCH HALTED!");
+					HaltMatch(); // Sets GameState to Waiting
+				}
+				else
+				{
+					TellAll("Welcome to Zombie Mode! Need " + (Need-PlayerList.Count) + " more players to join AND spawn to start the match ..."); // $$$ - custom message
+				}
+				GameState = GState.Waiting;
+				return; // Don't count this spawn
+			} 
+			else if (PlayerList.Count >= Need && GameState == GState.Waiting)
+			{
+				TellAll("New match starting ... counting down ..."); // $$$ - custom message
+				CountdownNextRound(ZOMBIE_TEAM); // Sets GameState to CountingDown or NeedsSpawn
+				return;
+			}
+			
+			// Check if this is the first spawn of the round/match
+			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn)
+			{
 				GameState = GState.Playing;
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 3);
-				TellAll(PatientZero + " is the first zombie!"); // TBD - custom message
+				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
 			}
 			
 			int n = PlayerState.GetSpawnCount(soldierName);
@@ -892,15 +1003,22 @@ namespace PRoConEvents
 			{
 				DebugWrite("OnPlayerSpawned " + soldierName + " is fresh zombie!", 3);
 				FreshZombie.Remove(soldierName);
-				TellPlayer("You are now a zombie! Use a knife/defib/repair tool only!", soldierName); // TBD - custom message
-			} else if (PlayerState.GetWelcomeCount(soldierName) == 0) {
+				TellPlayer("You are now a zombie! Use a knife/defib/repair tool only!", soldierName); // $$$ - custom message
+			} 
+			else if (PlayerState.GetWelcomeCount(soldierName) == 0)
+			{
 				String Separator = " ";
 				if (CommandPrefix.Length == 1) Separator = "";
-				TellPlayer("Welcome to Zombie Mode! Type '" + CommandPrefix + Separator + "rules' for instructions on how to play", soldierName); // TBD - custom message
+				TellPlayer("Welcome to Zombie Mode! Type '" + CommandPrefix + Separator + "rules' for instructions on how to play", soldierName); // $$$ - custom message
 				PlayerState.SetWelcomeCount(soldierName, 1);
-			} else if (n == 0) {
-				if (!TeamHuman.Contains(soldierName)) ConsoleError("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
-				TellPlayer("You are a human! Shoot zombies, don't use explosives, don't let zombies get near you!", soldierName); // TBD - custom message
+			}
+			else if (n == 0)
+			{
+				lock (TeamHuman)
+				{
+					if (!TeamHuman.Contains(soldierName)) ConsoleError("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
+				}
+				TellPlayer("You are a human! Shoot zombies, don't use explosives, don't let zombies get near you!", soldierName); // $$$ - custom message
 			}
 			
 			PlayerState.SetSpawnCount(soldierName, n+1);
@@ -911,7 +1029,7 @@ namespace PRoConEvents
 			DebugWrite("OnLevelLoaded, updating player list", 3);
 			
 			// We have 5 seconds before the server swaps teams, make sure we are up to date
-			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+			RequestPlayersList();
 			
 			// Reset the team switching counter
 			ServerSwitchedCount = 0;
@@ -1248,26 +1366,21 @@ namespace PRoConEvents
 					if (RematchEnabled)
 					{
 						Sleep(AnnounceDisplayLength);
-						TellAll("Next match, same round, will start in " + (2*AnnounceDisplayLength) + " seconds");
-						Sleep(AnnounceDisplayLength);
-						TellAll("Next match, same round, will start in " + (AnnounceDisplayLength) + " seconds");
-						Sleep(AnnounceDisplayLength);
+						TellAll("New match will start in 5 seconds ... prepare to be moved!");
+						Sleep(5);
 						
 						DebugWrite("CountdownNextRound ended with rematch mode enabled", 2);
 						
-						MakeTeams(); // Sends TellAll
+						MakeTeams(); // Sets GameState to NeedSpawn
 					}
 					else
 					{
 						Sleep(AnnounceDisplayLength);
-						TellAll("Next round will start in " + (2*AnnounceDisplayLength) + " seconds");
-						Sleep(AnnounceDisplayLength);
-						TellAll("Next round will start in " + (AnnounceDisplayLength) + " seconds");
-						Sleep(AnnounceDisplayLength);
-						TellAll("Next round will start now!");
+						TellAll("Next round will start in 5 seconds");
 						Sleep(5);
 						
 						DebugWrite("CountdownNextRound thread: end round with winner teamID = " + "WinningTeam", 3);
+						
 						ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
 						
 						GameState = GState.BetweenRounds;
@@ -1335,7 +1448,7 @@ namespace PRoConEvents
 
 		public void Infect(string Carrier, string Victim)
 		{
-			Announce(String.Concat(Carrier, " just infected ", Victim)); // TBD - custom message
+			TellAll(String.Concat(Carrier, " just infected ", Victim)); // $$$ - custom message
 
 			MakeZombie(Victim);
 			
@@ -1344,14 +1457,17 @@ namespace PRoConEvents
 
 		private void MakeHuman(string PlayerName)
 		{
-			Announce(String.Concat(PlayerName, " has join the fight for survival!")); // TBD - custom message
+			Announce(String.Concat(PlayerName, " has joined the fight for survival!")); // $$$ - custom message
 			
 			DebugWrite("MakeHuman: " + PlayerName, 3);
 
 			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
 			
-			if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
-			if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
+			lock (TeamHuman)
+			{
+				if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
+				if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
+			}
 		}
 		
 		private void ForceMove(string PlayerName, string TeamId)
@@ -1368,7 +1484,13 @@ namespace PRoConEvents
 					
 					// Now do the move
 
-					ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, TeamId, BLANK_SQUAD, FORCE_MOVE);					
+					ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, TeamId, BLANK_SQUAD, FORCE_MOVE);
+					
+					Thread.Sleep(300);
+					
+					// Now update TeamHuman & TeamZombie
+					RequestPlayersList();
+					
 				}
 				catch (Exception e)
 				{
@@ -1391,8 +1513,11 @@ namespace PRoConEvents
 
 			ForceMove(PlayerName, ZOMBIE_TEAM);
 			
-			if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
-			if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);			
+			lock (TeamHuman)
+			{
+				if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
+				if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);	
+			}
 			
 			FreshZombie.Add(PlayerName);
 		}
@@ -1404,21 +1529,27 @@ namespace PRoConEvents
 			{
 				try
 				{
-					GameState = GState.NeedSpawn;
-					
 					Sleep(5); // allow time to update player list
 					
 					// First, kill all the former zombies to prepare for team switches
 					
 					List<String> tmp = new List<String>();
 					
-					foreach (String z in TeamZombie)
+					List<String> ZombieCopy = new List<String>();
+					
+					lock (TeamHuman) // Only lock this object for both humans and zombies
+					{
+						ZombieCopy.AddRange(TeamZombie);
+					}
+					
+					foreach (String z in ZombieCopy)
 					{
 						// We are managing the delay manually, so don't use KillPlayerAfterDelay
 						ExecuteCommand("procon.protected.send", "admin.killPlayer", z);
 						tmp.Add(z);
 						Thread.Sleep(100);
 					}
+
 
 					// Then, move them to human team
 					// We can't use TeamZombie here, because MakeHuman modifies it
@@ -1433,9 +1564,12 @@ namespace PRoConEvents
 					
 					Lottery.Clear();
 					
-					foreach (String h in TeamHuman)
+					lock (TeamHuman)
 					{
-						if (!PatientZeroes.Contains(h)) Lottery.Add(h);
+						foreach (String h in TeamHuman)
+						{
+							if (!PatientZeroes.Contains(h)) Lottery.Add(h);
+						}
 					}
 
 					// Sanity check
@@ -1447,10 +1581,13 @@ namespace PRoConEvents
 						PatientZeroes.Clear();
 						Lottery.Clear();
 						
-						for (int i = 0; i < TeamHuman.Count; ++i)
+						lock (TeamHuman)
 						{
-							Lottery.Add(TeamHuman[i]);
-							if ((i + 1) >= MinimumZombies) break;
+							for (int i = 0; i < TeamHuman.Count; ++i)
+							{
+								Lottery.Add(TeamHuman[i]);
+								if ((i + 1) >= MinimumZombies) break;
+							}
 						}
 					}
 					
@@ -1481,7 +1618,7 @@ namespace PRoConEvents
 
 					DebugWrite("makeTeams: ready for another round!", 2);
 					
-					TellAll("*** Spawn now, Zombie Mode is on!"); // TBD - custom message
+					TellAll("*** Spawn now, Zombie Mode is on!"); // $$$ - custom message
 					
 					// Reset state
 
@@ -1499,6 +1636,10 @@ namespace PRoConEvents
 				{
 					ConsoleException("nukeZombies: " + e.ToString());
 				}
+				finally
+				{
+					GameState = GState.NeedSpawn;
+				}
 			};
 			
 			// Update the player lists
@@ -1507,7 +1648,7 @@ namespace PRoConEvents
 			
 			// Tell everyone to hold on tight
 			
-			TellAll("*** PREPARE TO BE MOVED, new round starting, same map level!"); // TBD - custom message
+			// TellAll("*** PREPARE TO BE MOVED, new match starting, same map level!"); // $$$ - custom message
 			
 			Thread t = new Thread(makeTeams);
 
@@ -1563,8 +1704,13 @@ namespace PRoConEvents
 		
 		private void AdaptDamage()
 		{
-			double HumanCount = (TeamHuman.Count == 0) ? 1 : TeamHuman.Count;
-			double ZombieCount = (TeamZombie.Count == 0) ? 1 : TeamZombie.Count;
+			double HumanCount = 1;
+			double ZombieCount = 1;
+			lock (TeamHuman)
+			{
+				HumanCount = (TeamHuman.Count == 0) ? 1 : TeamHuman.Count;
+				ZombieCount = (TeamZombie.Count == 0) ? 1 : TeamZombie.Count;
+			}
 			double RatioHumansToZombies = (HumanCount / ZombieCount) * 100.0;
 			int BulletDamage = 5;
 			
@@ -1665,7 +1811,7 @@ namespace PRoConEvents
 		{
 			int Delay = 5;
 			List<String> Rules = new List<String>();
-			// TBD - custom message
+			// $$$ - custom message
 			Rules.Add("US team are humans, RU team are zombies");
 			Rules.Add("Zombies use knife/defib/repair tool only!");
 			Rules.Add("Zombies are hard to kill");
@@ -1733,8 +1879,11 @@ namespace PRoConEvents
 		private void Reset()
 		{
 			PlayerList.Clear();
-			TeamHuman.Clear();
-			TeamZombie.Clear();
+			lock (TeamHuman)
+			{
+				TeamHuman.Clear();
+				TeamZombie.Clear();
+			}
 			FreshZombie.Clear();
 			PatientZeroes.Clear();
 			Lottery.Clear();
@@ -1743,6 +1892,15 @@ namespace PRoConEvents
 			ServerSwitchedCount = 0;
 			PatientZero = null;
 			GameState = GState.Idle;
+		}
+		
+		private void HaltMatch()
+		{
+			FreshZombie.Clear();
+			Lottery.Clear();
+			PlayerState.ResetPerMatch();
+			PatientZero = null;
+			GameState = GState.Waiting;
 		}
 
 		private enum MessageType { Warning, Error, Exception, Normal };
