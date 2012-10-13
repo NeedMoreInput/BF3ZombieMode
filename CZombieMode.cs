@@ -554,6 +554,7 @@ namespace PRoConEvents
 			PlayerList = Players;
 			
 			DebugWrite("OnListPlayers: " + Players.Count + " players", 4);
+			DebugWrite("GameState = " + GameState, 5);
 			
 			if (ZombieModeEnabled == false)
 				return;
@@ -811,7 +812,7 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("Debug level = " + DebugLevel + " ....", 7);
+			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " .", 7);
 			DebugWrite("GameState = " + GameState, 5);
 			
 			if (GameState == GState.BetweenRounds)
@@ -965,6 +966,22 @@ namespace PRoConEvents
 				return;
 			}
 			
+			String WhichTeam = (GameState == GState.Playing) ? "UNKNOWN" : GameState.ToString();
+			
+			lock (TeamHuman)
+			{
+				if (TeamZombie.Contains(soldierName))
+				{
+					WhichTeam = "ZOMBIE";
+				}
+				else if (TeamHuman.Contains(soldierName))
+				{
+					WhichTeam = "HUMAN";
+				}
+			}
+			DebugWrite("OnPlayerSpawned: " + soldierName + "(" + WhichTeam + ")", 5);
+
+			
 			// Check if we have enough players spawned
 			int Need = MinimumHumans + MinimumZombies;
 			if (PlayerList.Count < Need)
@@ -1026,6 +1043,12 @@ namespace PRoConEvents
 
 		public override void OnLevelLoaded(string mapFileName, string Gamemode, int roundsPlayed, int roundsTotal)
 		{
+			if (ZombieModeEnabled == false) 
+			{
+				GameState = GState.Idle;
+				return;
+			}
+
 			DebugWrite("OnLevelLoaded, updating player list", 3);
 			
 			// We have 5 seconds before the server swaps teams, make sure we are up to date
@@ -1056,8 +1079,27 @@ namespace PRoConEvents
 
 		public override void OnRoundOver(int winningTeamId)
 		{
+			if (ZombieModeEnabled == false) 
+			{
+				GameState = GState.Idle;
+				return;
+			}
+
 			DebugWrite("OnRoundOver, GameState set to BetweenRounds", 4);
+			
 			GameState = GState.BetweenRounds;
+		}
+
+		public override void OnPlayerLeft(CPlayerInfo playerInfo) {
+			if (ZombieModeEnabled == false) 
+			{
+				GameState = GState.Idle;
+				return;
+			}
+
+			DebugWrite("OnPlayerLeft: " + playerInfo.SoldierName, 4);
+
+			RequestPlayersList();
 		}
 
 
@@ -1082,7 +1124,8 @@ namespace PRoConEvents
 				"OnPlayerTeamChange",
 				"OnPlayerSpawned",
 				"OnLevelLoaded",
-				"OnRoundOver"
+				"OnRoundOver",
+				"OnPlayerLeft"
 				);
 		}
 
