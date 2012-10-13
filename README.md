@@ -9,4 +9,7 @@ When there are a minimum number of players spawned, all of the players are moved
 
 The maximum number of players is half your server slots, so if you have a 64-slot server, you can have a max of 32 players.
 
+Recommended server settings are here: TBD
+
+
 
