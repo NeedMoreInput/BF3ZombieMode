@@ -53,6 +53,10 @@ namespace PRoConEvents
 		private ZombieModeKillTracker KillTracker = new ZombieModeKillTracker();
 		
 		private bool RematchEnabled = true; // true: round does not end, false: round ends
+		
+		private int HumanMaxIdleSeconds = 2*60; // aggressively kick idle humans
+		
+		private int MaxIdleSeconds = 10*60; // maximum idle for any player
 
 		#endregion
 
@@ -558,6 +562,13 @@ namespace PRoConEvents
 			
 			if (ZombieModeEnabled == false)
 				return;
+				
+			if (CheckIdle(Players))
+			{
+				// We kicked some idle players, so update the player list again
+				RequestPlayersList();
+				return;
+			}
 			
 			List<String> HumanCensus = new List<String>();
 			List<String> ZombieCensus = new List<String>();
@@ -980,8 +991,9 @@ namespace PRoConEvents
 				}
 			}
 			DebugWrite("OnPlayerSpawned: " + soldierName + "(" + WhichTeam + ")", 5);
-
 			
+			PlayerState.UpdateSpawnTime(soldierName);
+
 			// Check if we have enough players spawned
 			int Need = MinimumHumans + MinimumZombies;
 			if (PlayerList.Count < Need)
@@ -1199,11 +1211,14 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Deaths Needed To Be Infected", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
 			
-
 			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicides", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Rematch Enabled", typeof(enumBoolOnOff), RematchEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			
+			lstReturn.Add(new CPluginVariable("Game Settings|Human Max Idle Seconds", HumanMaxIdleSeconds.GetType(), HumanMaxIdleSeconds));
+
+			lstReturn.Add(new CPluginVariable("Game Settings|Max Idle Seconds", MaxIdleSeconds.GetType(), MaxIdleSeconds));
+
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against 1 Or 2 Zombies", Against1Or2Zombies.GetType(), Against1Or2Zombies));
 
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against A Few Zombies", AgainstAFewZombies.GetType(), AgainstAFewZombies));
@@ -1368,6 +1383,16 @@ namespace PRoConEvents
 						DebugValue("Zombies Killed To Survive", ZombiesKilledToSurvive.ToString(), "must be more than " + MaxPlayers, "50");
 						ZombiesKilledToSurvive = 50; // default
 					}
+					if (HumanMaxIdleSeconds < 0 )
+					{
+						DebugValue("Human Max Idle Seconds", HumanMaxIdleSeconds.ToString(), "must not be negative", "120");
+						HumanMaxIdleSeconds = 120; // default
+					}
+					if (MaxIdleSeconds < 0)
+					{
+						DebugValue("Max Idle Seconds", MaxIdleSeconds.ToString(), "must not be negative", "600");
+						MaxIdleSeconds = 600; // default
+					}
 				}
 			};
 
@@ -1478,6 +1503,32 @@ namespace PRoConEvents
 
 			if (Reason.Length > 0)
 				Announce(String.Concat(PlayerName, "kicked for: ", Reason));
+		}
+
+		private bool CheckIdle(List<CPlayerInfo> Players)
+		{
+			bool KickedSomeone = false;
+			
+			foreach (CPlayerInfo Player in Players)
+			{
+				String Name = Player.SoldierName;
+				double MaxTime = MaxIdleSeconds;
+				lock (TeamHuman)
+				{
+					if (GameState == GState.Playing && TeamHuman.Contains(Name))
+					{
+						MaxTime = HumanMaxIdleSeconds;
+					}
+				}
+				if (PlayerState.IdleTimeExceedsMax(Name, MaxTime))
+				{
+					DebugWrite("CheckIdle: " + Name + " ^8^bexceeded idle time of " + MaxTime + " seconds, KICKING ...^n^0", 2);
+					KickPlayer(Name, "Idle for more than " + MaxTime + " seconds");
+					KickedSomeone = true;
+				}
+			}
+			
+			return KickedSomeone;
 		}
 
 		#endregion
@@ -2113,6 +2164,8 @@ namespace PRoConEvents
 		public int WelcomeCount = 0;
 		
 		public int SpawnCount = 0;
+		
+		public DateTime LastSpawnTime = DateTime.Now;
 	}
 
 	class ZombieModePlayerState
@@ -2147,6 +2200,20 @@ namespace PRoConEvents
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
 			AllPlayerStates[soldierName].SpawnCount = n;
+		}
+		
+		public void UpdateSpawnTime(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			AllPlayerStates[soldierName].LastSpawnTime = DateTime.Now;			
+		}
+		
+		public bool IdleTimeExceedsMax(String soldierName, double maxSecs)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return false;
+			DateTime last = AllPlayerStates[soldierName].LastSpawnTime;
+			TimeSpan time = DateTime.Now - last;
+			return(time.TotalSeconds > maxSecs);
 		}
 		
 		public void ResetPerMatch()
