@@ -437,10 +437,22 @@ namespace PRoConEvents
 		
 		public override void OnPlayerKilled(Kill info)
 		{
-			if (ZombieModeEnabled == false || GameState != GState.Playing)
+			if (ZombieModeEnabled == false)
+				return;
+
+			if (GameState != GState.Idle)
+			{
+				PlayerState.UpdateSpawnTime(info.Killer.SoldierName);
+				PlayerState.UpdateSpawnTime(info.Victim.SoldierName);
+				PlayerState.SetSpawned(info.Victim.SoldierName, false);
+				if (DebugLevel > 3) ExecuteCommand("procon.protected.send", "vars.bulletDamage");
+			}
+
+			if (GameState != GState.Playing)
 				return;
 
 			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + info.DamageType, 3);
+			
 			
 			// Killed by admin?
 			if (info.DamageType == "Death")
@@ -657,7 +669,7 @@ namespace PRoConEvents
 
 			if (!Command.StartsWith(CommandPrefix.ToLower()))
 			{
-				if (Regex.Match(CleanMessage, @"(?:help|zombie)", RegexOptions.IgnoreCase).Success)
+				if (Regex.Match(CleanMessage, @"(?:help|zombie|rules)", RegexOptions.IgnoreCase).Success)
 				{
 					TellPlayer("Type: !zombie help", PlayerName, false);
 				}
@@ -837,6 +849,7 @@ namespace PRoConEvents
 					}
 					break;
 				default: // "help"
+					TellPlayer("Try suiciding and respawning", PlayerName);
 					if (!IsAdmin(PlayerName))
 					{
 						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, warn", PlayerName);
@@ -853,7 +866,7 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " .", 7);
+			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ..", 7);
 			DebugWrite("GameState = " + GameState, 6);
 			
 			if (GameState == GState.BetweenRounds)
@@ -1023,6 +1036,8 @@ namespace PRoConEvents
 			DebugWrite("OnPlayerSpawned: " + soldierName + "(" + WhichTeam + ")", 5);
 			
 			PlayerState.UpdateSpawnTime(soldierName);
+			PlayerState.SetSpawned(soldierName, true);
+
 
 			// Check if we have enough players spawned
 			int Need = MinimumHumans + MinimumZombies;
@@ -1390,9 +1405,9 @@ namespace PRoConEvents
 						DebugValue("Max Players", MaxPlayers.ToString(), "must be between 8 and 32, inclusive", "32");
 						MaxPlayers = 32; // default
 					}
-					if (MinimumHumans < 3 || MinimumHumans > (MaxPlayers-1))
+					if (MinimumHumans < 2 || MinimumHumans > (MaxPlayers-1))
 					{
-						DebugValue("Minimum Humans", MinimumHumans.ToString(), "must be between 3 and " + (MaxPlayers-1), "3");
+						DebugValue("Minimum Humans", MinimumHumans.ToString(), "must be between 3 and " + (MaxPlayers-1), "2");
 						MinimumHumans = 3; // default
 					}
 					if (MinimumZombies < 1 || MinimumZombies > (MaxPlayers-MinimumHumans))
@@ -2255,6 +2270,8 @@ namespace PRoConEvents
 		public int SpawnCount = 0;
 		
 		public DateTime LastSpawnTime = DateTime.Now;
+		
+		public bool IsSpawned = false;
 	}
 
 	class ZombieModePlayerState
@@ -2300,9 +2317,18 @@ namespace PRoConEvents
 		public bool IdleTimeExceedsMax(String soldierName, double maxSecs)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return false;
-			DateTime last = AllPlayerStates[soldierName].LastSpawnTime;
+			APlayerState ps = AllPlayerStates[soldierName];
+			if (ps.IsSpawned == true) return false;
+			DateTime last = ps.LastSpawnTime;
 			TimeSpan time = DateTime.Now - last;
 			return(time.TotalSeconds > maxSecs);
+		}
+		
+		
+		public void SetSpawned(String soldierName, bool SpawnStatus)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			AllPlayerStates[soldierName].IsSpawned = SpawnStatus;			
 		}
 		
 		public void ResetPerMatch()
