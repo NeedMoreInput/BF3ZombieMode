@@ -115,6 +115,8 @@ namespace PRoConEvents
 		};
 		
 		private GState GameState = GState.Idle;
+		
+		private int HeartBeat = 0;
 
 		#endregion
 
@@ -543,7 +545,7 @@ namespace PRoConEvents
 			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive) // TBD: to be made adaptive
 			{
 				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
-				DebugWrite("^2" + msg + "^0", 1);
+				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
 			}
@@ -559,7 +561,7 @@ namespace PRoConEvents
 				if (Surviving == 0 && Infecteds > MinimumZombies)
 					{
 						string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
-						DebugWrite("^7" + msg + "^0", 1);
+						DebugWrite("^7^b ***** " + msg + "^n^0", 1);
 						TellAll(msg);
 						CountdownNextRound(ZOMBIE_TEAM);
 					}
@@ -571,8 +573,8 @@ namespace PRoConEvents
 		{
 			PlayerList = Players;
 			
-			DebugWrite("OnListPlayers: " + Players.Count + " players", 4);
-			DebugWrite("GameState = " + GameState, 5);
+			if (Players.Count > 0) DebugWrite("OnListPlayers: " + Players.Count + " players", 4);
+			if (Players.Count > 0 || (++HeartBeat % 10) == 0) DebugWrite("OnListPlayers: GameState = " + GameState, 5);
 			
 			if (ZombieModeEnabled == false)
 				return;
@@ -605,7 +607,7 @@ namespace PRoConEvents
 			
 			lock (TeamHuman)
 			{
-				DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 5);
+				if (Players.Count > 0) DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 5);
 				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
 				
@@ -838,6 +840,13 @@ namespace PRoConEvents
 				case "status":
 					TellStatus(PlayerName);
 					break;
+				case "idle":
+					{
+					double st = PlayerState.GetLastSpawnTime(PlayerName);
+					String isw = (PlayerState.GetSpawned(PlayerName)) ? "spawned" : "dead";
+					TellPlayer("You are " + isw + " and your last action was " + st.ToString("F0") + " seconds ago", PlayerName, false);
+					break;
+					}
 				case "test":
 					DebugWrite("loopz", 2);
 					DebugWrite(FrostbitePlayerInfoList.Values.Count.ToString(), 2);
@@ -852,11 +861,11 @@ namespace PRoConEvents
 					TellPlayer("Try suiciding and respawning", PlayerName);
 					if (!IsAdmin(PlayerName))
 					{
-						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, warn", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn", PlayerName);
 					}
 					else
 					{
-						TellPlayer("Type !zombie <command>\nCommands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, warn", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, idle, warn", PlayerName);
 					}
 					break;
 			}
@@ -1066,6 +1075,7 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn)
 			{
 				GameState = GState.Playing;
+				DebugWrite("^b^2****** MATCH STARTING WITH " + PlayerList.Count + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 3);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
 			}
@@ -1133,6 +1143,8 @@ namespace PRoConEvents
 
 		public override void OnRoundOver(int winningTeamId)
 		{
+			HeartBeat = 0;
+			
 			if (ZombieModeEnabled == false) 
 			{
 				GameState = GState.Idle;
@@ -1956,16 +1968,16 @@ namespace PRoConEvents
 
 		private void TellRules(string SoldierName)
 		{
-			int Delay = 5;
+			int Delay = 4;
 			List<String> Rules = new List<String>();
 			// $$$ - custom message
 			Rules.Add("US team are humans, RU team are zombies");
 			Rules.Add("Zombies use knife/defib/repair tool only!");
 			Rules.Add("Zombies are hard to kill");
 			Rules.Add("Humans use guns only, no explosives!");
-			Rules.Add("When a zombie kills you, you are infected and moved to the zombie team!");
 			Rules.Add("Zombies win by infecting all humans");
 			if (ZombieKillLimitEnabled) Rules.Add("Humans win by killing " + ZombiesKilledToSurvive + " zombies");
+			Rules.Add("When a zombie kills you, you are infected and moved to the zombie team!");
 			
 			String RuleNum = null;
 			int i = 1;
@@ -2088,6 +2100,7 @@ namespace PRoConEvents
 			GameState = GState.Idle;
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
+			HeartBeat = 0;
 		}
 		
 		private void HaltMatch()
@@ -2099,6 +2112,7 @@ namespace PRoConEvents
 			GameState = GState.Waiting;
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
+			HeartBeat = 0;
 		}
 
 		private enum MessageType { Warning, Error, Exception, Normal };
@@ -2330,7 +2344,25 @@ namespace PRoConEvents
 			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
 			AllPlayerStates[soldierName].IsSpawned = SpawnStatus;			
 		}
+
+		public bool GetSpawned(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			return AllPlayerStates[soldierName].IsSpawned;			
+		}
+
+
+		public double GetLastSpawnTime(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
+			APlayerState ps = AllPlayerStates[soldierName];
+			DateTime last = ps.LastSpawnTime;
+			TimeSpan time = DateTime.Now - last;
+			return(time.TotalSeconds);
+		}
 		
+		
+
 		public void ResetPerMatch()
 		{
 			foreach (String key in AllPlayerStates.Keys)
