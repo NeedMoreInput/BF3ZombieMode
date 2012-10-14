@@ -1156,6 +1156,9 @@ namespace PRoConEvents
 			// Reset the team switching counter
 			ServerSwitchedCount = 0;
 			
+			// Reset the known player count
+			KnownPlayerCount = 0;
+			
 			// Reset the utility lists
 			FreshZombie.Clear();
 			Lottery.Clear();
@@ -1184,6 +1187,25 @@ namespace PRoConEvents
 			DebugWrite("OnRoundOver, GameState set to BetweenRounds", 4);
 			
 			GameState = GState.BetweenRounds;
+
+			// Reset the team switching counter
+			ServerSwitchedCount = 0;
+			
+			// Reset the known player count
+			KnownPlayerCount = 0;
+
+			// Reset the utility lists
+			FreshZombie.Clear();
+			Lottery.Clear();
+			
+			// Reset patient zero
+			PatientZero = null;
+			
+			// Reset per-round player states
+			PlayerState.ResetPerRound();
+			
+			// Reset kill tracker
+			KillTracker.ResetPerRound();
 		}
 
 		public override void OnPlayerLeft(CPlayerInfo playerInfo) {
@@ -2212,7 +2234,7 @@ namespace PRoConEvents
 
 		private void DebugWrite(string msg, int level)
 		{
-			if (DebugLevel >= level) ConsoleLog(msg, MessageType.Normal);
+			if (DebugLevel >= level) ConsoleLog("[" + level + "] " + msg, MessageType.Normal);
 		}
 		
 		private void DebugValue(string Name, string BadValue, string Message, string NewValue)
