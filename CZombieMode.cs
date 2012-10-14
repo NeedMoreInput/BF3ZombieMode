@@ -58,6 +58,8 @@ namespace PRoConEvents
 		
 		private int MaxIdleSeconds = 10*60; // maximum idle for any player
 		
+		private int WarnsBeforeKickForRulesViolations = 1;
+		
 		private bool NewPlayersJoinHumans = true;
 
 		#endregion
@@ -455,7 +457,7 @@ namespace PRoConEvents
 			if (GameState != GState.Playing)
 				return;
 
-			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + info.DamageType, 3);
+			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + info.DamageType, 4);
 			
 			
 			// Killed by admin?
@@ -493,8 +495,24 @@ namespace PRoConEvents
 			if (ValidateWeapon(info.DamageType, KillerTeam) == false)
 			{
 				DebugWrite(String.Concat(KillerName, " invalid kill with ", info.DamageType, "!"), 2);
-
-				KillPlayer(KillerName, "Bad weapon choice!"); // $$$ - custom message
+				
+				String msg = "ZOMBIE RULE VIOLATION! " + info.DamageType + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
+				
+				TellAll(KillerName + " => " + msg);
+				
+				int Count = KillTracker.GetViolations(KillerName);
+				
+				if (Count < WarnsBeforeKickForRulesViolations)
+				{
+					// Warning
+					KillPlayer(KillerName, msg);
+				}
+				else if (Count >= WarnsBeforeKickForRulesViolations)
+				{
+					KickPlayer(KillerName, msg);
+				}
+				
+				KillTracker.SetViolations(KillerName, Count+1);
 
 				return;
 			}
@@ -506,8 +524,17 @@ namespace PRoConEvents
 				KillTracker.ZombieKilled(KillerName, VictimName);
 
 				DebugWrite(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", DamageType), 3);
-				
+								
 				TellAll("*** Humans killed " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies needed to win!"); // $$$ - custom message
+
+				// Check for self-infecting kill
+				if (Regex.Match(info.DamageType, @"(?:Knife|Melee|Defib|Repair)", RegexOptions.IgnoreCase).Success)
+				{
+					// Infect player
+					Infect("Contact Kill", KillerName);
+					// overwrite infect yell
+					TellPlayer("You infected yourself with that " + info.DamageType + " kill!", KillerName); // $$$ - custom message
+				}
 			}
 			else if (KillerTeam == ZOMBIE_TEAM && VictimTeam == HUMAN_TEAM)
 			{
@@ -1300,6 +1327,12 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Warning Display Length", WarningDisplayLength.GetType(), WarningDisplayLength));
 
+			lstReturn.Add(new CPluginVariable("Admin Settings|Human Max Idle Seconds", HumanMaxIdleSeconds.GetType(), HumanMaxIdleSeconds));
+
+			lstReturn.Add(new CPluginVariable("Admin Settings|Max Idle Seconds", MaxIdleSeconds.GetType(), MaxIdleSeconds));
+
+			lstReturn.Add(new CPluginVariable("Admin Settings|Warns Before Kick For Rules Violations", WarnsBeforeKickForRulesViolations.GetType(), WarnsBeforeKickForRulesViolations));
+
 			lstReturn.Add(new CPluginVariable("Admin Settings|Debug Level", DebugLevel.GetType(), DebugLevel));
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), AdminUsers.ToArray()));
@@ -1323,10 +1356,6 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Rematch Enabled", typeof(enumBoolOnOff), RematchEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			
-			lstReturn.Add(new CPluginVariable("Game Settings|Human Max Idle Seconds", HumanMaxIdleSeconds.GetType(), HumanMaxIdleSeconds));
-
-			lstReturn.Add(new CPluginVariable("Game Settings|Max Idle Seconds", MaxIdleSeconds.GetType(), MaxIdleSeconds));
-
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against 1 Or 2 Zombies", Against1Or2Zombies.GetType(), Against1Or2Zombies));
 
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against A Few Zombies", AgainstAFewZombies.GetType(), AgainstAFewZombies));
@@ -1960,6 +1989,7 @@ namespace PRoConEvents
 			
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 			DebugWrite("AdaptDamage: Humans(" + HumanCount + "):Zombies(" + ZombieCount + "), bullet damage set to " + BulletDamage + "%", 3);
+			TellAll("Bullet damage is now " + BulletDamage + "%", false);
 
 		}
 
@@ -2262,6 +2292,8 @@ namespace PRoConEvents
 		public int DeathsAsZombie = 0;
 
 		public int DeathsAsHuman = 0;
+		
+		public int RulesViolations = 0; // never reset this value
 	}
 
 	class ZombieModeKillTracker
@@ -2326,6 +2358,16 @@ namespace PRoConEvents
 		public int GetPlayerHumanDeathCount(String PlayerName)
 		{
 			return Kills[PlayerName].DeathsAsHuman;
+		}
+		
+		public int GetViolations(String PlayerName)
+		{
+			return Kills[PlayerName].RulesViolations;
+		}
+		
+		public void SetViolations(String PlayerName, int Times)
+		{
+			Kills[PlayerName].RulesViolations = Times;
 		}
 
 		public void ResetPerMatch()
@@ -2408,6 +2450,8 @@ namespace PRoConEvents
 			if (!AllPlayerStates.ContainsKey(soldierName)) return false;
 			APlayerState ps = AllPlayerStates[soldierName];
 			if (ps.IsSpawned == true) return false;
+			// Fix for idle kicks before someone spawns the first time!
+			if (maxSecs < 300 && ps.SpawnCount < 2) return false;
 			DateTime last = ps.LastSpawnTime;
 			TimeSpan time = DateTime.Now - last;
 			return(time.TotalSeconds > maxSecs);
