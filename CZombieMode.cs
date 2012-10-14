@@ -57,6 +57,8 @@ namespace PRoConEvents
 		private int HumanMaxIdleSeconds = 2*60; // aggressively kick idle humans
 		
 		private int MaxIdleSeconds = 10*60; // maximum idle for any player
+		
+		private bool NewPlayersJoinHumans = true;
 
 		#endregion
 
@@ -944,6 +946,32 @@ namespace PRoConEvents
 						if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
 						if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
 					}
+				} 
+				else if (!wasHuman && !wasZombie && GameState == GState.Playing)
+				{
+					// New player joining in the middle of the match
+					
+					DebugWrite("OnPlayerTeamChange: new player " + soldierName + " just joined on team " + teamId, 3);
+
+					if (teamId != ((NewPlayersJoinHumans) ? 1 : 2))
+					{
+						string Which = (NewPlayersJoinHumans) ? HUMAN_TEAM : ZOMBIE_TEAM;
+						TellPlayer("You are a new player, sending you to the other team ...", soldierName);
+						
+						DebugWrite("OnPlayerTeamChange: switching new player " + soldierName + " to team " + Which, 3);
+						
+						ForceMove(soldierName, Which);
+						
+						if (NewPlayersJoinHumans)
+						{
+							if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+						}
+						else
+						{
+							if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+						}
+						
+					}
 				}
 				
 			} else if (GameState == GState.BetweenRounds) { // server is swapping teams
@@ -1268,6 +1296,8 @@ namespace PRoConEvents
 			lstReturn.Add(new CPluginVariable("Game Settings|Deaths Needed To Be Infected", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
 			
 			lstReturn.Add(new CPluginVariable("Game Settings|Infect Suicides", typeof(enumBoolOnOff), InfectSuicides ? enumBoolOnOff.On : enumBoolOnOff.Off));
+
+			lstReturn.Add(new CPluginVariable("Game Settings|New Players Join Humans", typeof(enumBoolOnOff), NewPlayersJoinHumans ? enumBoolOnOff.On : enumBoolOnOff.Off));
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Rematch Enabled", typeof(enumBoolOnOff), RematchEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			
