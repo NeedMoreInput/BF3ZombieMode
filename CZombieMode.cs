@@ -927,7 +927,7 @@ namespace PRoConEvents
 					// Switching to human team is not allowed
 					TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // $$$ - custom message
 
-					ForceMove(soldierName, ZOMBIE_TEAM);
+					ForceMove(soldierName, ZOMBIE_TEAM, AnnounceDisplayLength);
 
 					lock (TeamHuman)
 					{
@@ -960,7 +960,7 @@ namespace PRoConEvents
 						
 						DebugWrite("OnPlayerTeamChange: switching new player " + soldierName + " to team " + Which, 3);
 						
-						ForceMove(soldierName, Which);
+						ForceMove(soldierName, Which, AnnounceDisplayLength);
 						
 						if (NewPlayersJoinHumans)
 						{
@@ -1661,12 +1661,15 @@ namespace PRoConEvents
 			}
 		}
 		
-		private void ForceMove(string PlayerName, string TeamId)
+		private void ForceMove(string PlayerName, string TeamId, int DelaySecs)
 		{
 			ThreadStart forceMove = delegate
 			{
 				try
 				{
+					// Delay for message?
+					if (DelaySecs != 0) Thread.Sleep(DelaySecs * 1000);
+					
 					// Kill player requires a delay to work correctly
 					
 					ExecuteCommand("procon.protected.send", "admin.killPlayer", PlayerName);
@@ -1697,6 +1700,12 @@ namespace PRoConEvents
 			
 			DebugWrite("ForceMove " + PlayerName + " to " + TeamId, 3);
 		}
+
+		private void ForceMove(string PlayerName, string TeamId)
+		{
+			ForceMove(PlayerName, TeamId, 0);
+		}
+
 
 		private void MakeZombie(string PlayerName)
 		{
