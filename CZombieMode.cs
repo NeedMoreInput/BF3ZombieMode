@@ -574,7 +574,7 @@ namespace PRoConEvents
 			PlayerList = Players;
 			
 			if (Players.Count > 0) DebugWrite("OnListPlayers: " + Players.Count + " players", 4);
-			if (Players.Count > 0 || (++HeartBeat % 10) == 0) DebugWrite("OnListPlayers: GameState = " + GameState, 5);
+			if (Players.Count > 0 || (HeartBeat++ % 10) == 0) DebugWrite("OnListPlayers: GameState = " + GameState, 5);
 			
 			if (ZombieModeEnabled == false)
 				return;
@@ -1075,6 +1075,7 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn)
 			{
 				GameState = GState.Playing;
+				AdaptDamage();
 				DebugWrite("^b^2****** MATCH STARTING WITH " + PlayerList.Count + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 3);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
