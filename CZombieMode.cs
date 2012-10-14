@@ -542,9 +542,23 @@ namespace PRoConEvents
 
 				KillTracker.HumanKilled(KillerName, VictimName);
 				
-				DebugWrite("Zombie Kill: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " vs " + DeathsNeededToBeInfected, 5);
-
-				// TBD - BROKEN : if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
+				try
+				{
+					if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
+					{
+						DebugWrite("^4SUCCESFUL^0 Infection Test: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " == " + DeathsNeededToBeInfected, 5);
+					}
+					else
+					{
+						DebugWrite("^8FAILED^0 Infection Test: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " != " + DeathsNeededToBeInfected, 5);
+					}
+				}
+				catch (Exception e)
+				{
+					ConsoleException(e.ToString());
+				}
+				
+				if (true) // TBD - workaround for DeathsNeededToBeInfected problem
 				{					
 					Infect(KillerName, VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
@@ -569,7 +583,10 @@ namespace PRoConEvents
 				}
 			}
 
-
+			lock (TeamHuman)
+			{
+				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + TeamZombie.Count + " zombies with " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies killed", 2);
+			}
 			
 			// Victory conditions
 			
@@ -590,12 +607,12 @@ namespace PRoConEvents
 					Infecteds = TeamZombie.Count;
 				}
 				if (Surviving == 0 && Infecteds > MinimumZombies)
-					{
-						string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
-						DebugWrite("^7^b ***** " + msg + "^n^0", 1);
-						TellAll(msg);
-						CountdownNextRound(ZOMBIE_TEAM);
-					}
+				{
+					string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
+					DebugWrite("^7^b ***** " + msg + "^n^0", 1);
+					TellAll(msg);
+					CountdownNextRound(ZOMBIE_TEAM);
+				}
 			}
 
 		}
@@ -907,7 +924,7 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ...", 7);
+			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ....", 7);
 			DebugWrite("GameState = " + GameState, 6);
 			
 			if (GameState == GState.BetweenRounds)
@@ -1133,7 +1150,6 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn)
 			{
 				GameState = GState.Playing;
-				AdaptDamage();
 				DebugWrite("^b^2****** MATCH STARTING WITH " + PlayerList.Count + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 3);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
@@ -1165,6 +1181,8 @@ namespace PRoConEvents
 			}
 			
 			PlayerState.SetSpawnCount(soldierName, n+1);
+			
+			AdaptDamage();
 		}
 
 		public override void OnLevelLoaded(string mapFileName, string Gamemode, int roundsPlayed, int roundsTotal)
@@ -1962,34 +1980,50 @@ namespace PRoConEvents
 				HumanCount = (TeamHuman.Count == 0) ? 1 : TeamHuman.Count;
 				ZombieCount = (TeamZombie.Count == 0) ? 1 : TeamZombie.Count;
 			}
-			double RatioHumansToZombies = (HumanCount / ZombieCount) * 100.0;
-			BulletDamage = 5;
+			double RatioHumansToZombies = (HumanCount / ZombieCount);
+			int NewBulletDamage = 5;
+			int OldBulletDamage = BulletDamage;
 			
 			
-			if (RatioHumansToZombies >= 75.0)
+			if (RatioHumansToZombies >= 3.0)
 			{
-				BulletDamage = Against1Or2Zombies;
+				NewBulletDamage = Against1Or2Zombies;
 			}
-			else if (RatioHumansToZombies < 75.0 && RatioHumansToZombies >= 60.0)
+			else if (RatioHumansToZombies < 3.0 && RatioHumansToZombies >= 1.5)
 			{
-				BulletDamage = AgainstAFewZombies;
+				NewBulletDamage = AgainstAFewZombies;
 			}
-			else if (RatioHumansToZombies < 60.0 && RatioHumansToZombies >= 40.0)
+			else if (RatioHumansToZombies < 1.5 && RatioHumansToZombies >= 0.4)
 			{
-				BulletDamage = AgainstEqualNumbers;
+				NewBulletDamage = AgainstEqualNumbers;
 			}
-			else if (RatioHumansToZombies < 40.0 && RatioHumansToZombies > 25.0)
+			else if (RatioHumansToZombies < 0.4 && RatioHumansToZombies > 0.20)
 			{
-				BulletDamage = AgainstManyZombies;
+				NewBulletDamage = AgainstManyZombies;
 			}
-			else // <= 25.0
+			else // <= 0.20
 			{
-				BulletDamage = AgainstCountlessZombies;
+				NewBulletDamage = AgainstCountlessZombies;
 			}
 			
-			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
-			DebugWrite("AdaptDamage: Humans(" + HumanCount + "):Zombies(" + ZombieCount + "), bullet damage set to " + BulletDamage + "%", 3);
-			TellAll("Bullet damage is now " + BulletDamage + "%", false);
+			// Cap damage for small numbers of players
+			if (NewBulletDamage > AgainstManyZombies && HumanCount == 1 && ZombieCount <= 6)
+			{
+				NewBulletDamage = AgainstManyZombies;
+			}
+
+			
+			if (NewBulletDamage != BulletDamage)
+			{
+				BulletDamage = NewBulletDamage;
+				
+				ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
+				
+				TellAll("Bullet damage is now " + BulletDamage + "%", false);
+			}
+			
+			DebugWrite("AdaptDamage: Humans(" + HumanCount + "):Zombies(" + ZombieCount + "), bullet damage set to " + BulletDamage + "% (was " + OldBulletDamage + "%)", 3);
+			
 
 		}
 
