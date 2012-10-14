@@ -642,9 +642,6 @@ namespace PRoConEvents
 		
 		public void HandleChat(string PlayerName, string Message, int TeamId, int SquadId)
 		{
-			if (ZombieModeEnabled == false)
-				return;
-				
 			String CleanMessage = Message.ToLower().Trim();
 
 			List<string> MessagePieces = new List<string>(CleanMessage.Split(' '));
@@ -684,6 +681,9 @@ namespace PRoConEvents
 			switch (Command)
 			{
 				case "infect":
+					if (ZombieModeEnabled == false || GameState == GState.Idle || GameState == GState.Waiting)
+						return;
+
 					if (!IsAdmin(PlayerName))
 					{
 						TellPlayer("Only admins can use that command!", PlayerName);
@@ -693,6 +693,9 @@ namespace PRoConEvents
 					Infect("Admin", MessagePieces[1]); // Does TellAll
 					break;
 				case "heal":
+					if (ZombieModeEnabled == false || GameState == GState.Idle || GameState == GState.Waiting)
+						return;
+
 					if (!IsAdmin(PlayerName))
 					{
 						TellPlayer("Only admins can use that command!", PlayerName);
@@ -759,6 +762,8 @@ namespace PRoConEvents
 					TellRules(PlayerName);
 					break;
 				case "warn":
+					if (ZombieModeEnabled == false || GameState == GState.Idle)
+						return;
 					if (MessagePieces.Count < 3) return;
 					string WarningMessage = String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray());
 
@@ -794,7 +799,7 @@ namespace PRoConEvents
 					TellPlayer("Kicking " + MessagePieces[1], PlayerName, false);
 					break;
 				case "status":
-					// TBD
+					TellStatus(PlayerName);
 					break;
 				case "test":
 					DebugWrite("loopz", 2);
@@ -1968,6 +1973,50 @@ namespace PRoConEvents
 			t.Start();
 			
 			Thread.Sleep(2);
+		}
+		
+		private void TellStatus(string SoldierName)
+		{
+			String status = "Zombie mode is disabled!";
+			bool IsPlaying = false;
+
+			
+			if (ZombieModeEnabled) switch(GameState)
+			{
+				case GState.Idle:
+					status = "No one is playing zombie mode (Idle)!";
+					break;
+				case GState.Waiting:
+					status = "Waiting for minimum number of players to spawn (Waiting)!";
+					break;
+				case GState.Playing:
+					status = "A match is in progress (Playing)!";
+					IsPlaying = true;
+					break;
+				case GState.CountingDown:
+					status = "Counting down to next match/round (CountingDown)!";
+					break;
+				case GState.BetweenRounds:
+					status = "ERROR (BetweenRounds)!"; // should never happen
+					break;
+				case GState.NeedSpawn:
+					status = "ERROR (NeedSpawn)!"; // should never happen
+					break;
+				default:
+					status = "Unknown";
+					break;
+			}
+			
+			TellPlayer("Status: " + status, SoldierName);
+			
+			if (IsPlaying)
+			{
+				TellPlayer("Humans have killed " + KillTracker.GetZombiesKilled() + " zombies!", SoldierName, false);
+				lock (TeamHuman)
+				{
+					TellPlayer("There are " + TeamHuman.Count + " human survivors!", SoldierName, false);
+				}
+			}
 		}
 
 		private void Reset()
