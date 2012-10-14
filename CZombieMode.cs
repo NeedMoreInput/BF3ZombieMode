@@ -1760,7 +1760,7 @@ namespace PRoConEvents
 
 		private void MakeZombie(string PlayerName)
 		{
-			DebugWrite("MakeHuman: " + PlayerName, 3);
+			DebugWrite("MakeZombie: " + PlayerName, 3);
 
 			ForceMove(PlayerName, ZOMBIE_TEAM);
 			
