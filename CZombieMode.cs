@@ -669,11 +669,26 @@ namespace PRoConEvents
 				}
 			}
 			
-			if (SomeoneMoved && GameState == GState.Playing)
+			if (GameState == GState.Playing)
 			{
-				DebugWrite("OnListPlayers: move completed, TeamHuman & TeamZombie updated", 3);
-			}
-						
+				if (SomeoneMoved) DebugWrite("OnListPlayers: some players went missing, TeamHuman & TeamZombie updated", 5);
+				int z = 0;
+				int h = 0;
+				lock (TeamHuman)
+				{
+					z = TeamZombie.Count;
+					h = TeamHuman.Count;
+				}
+				if (z == 0 && h > 0)
+				{
+					string msg = "HUMANS WIN, no zombies left on the server!"; // $$$ - custom message
+					DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+					TellAll(msg);
+					CountdownNextRound(HUMAN_TEAM);
+					return;
+				}
+			}		
+
 			if (GameState == GState.BetweenRounds)
 			{
 				// Between rounds, force update
