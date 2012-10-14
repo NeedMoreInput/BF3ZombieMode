@@ -130,6 +130,8 @@ namespace PRoConEvents
 		int AgainstManyZombies = 30; // 2:3 to 1:4 ratio humans(40%-25%):zombies
 
 		int AgainstCountlessZombies = 100; // 1 to 4+ ratio humans[<=25%):zombies
+		
+		int BulletDamage = 100; // Current setting
 
 		#endregion
 
@@ -399,15 +401,15 @@ namespace PRoConEvents
 			{
 				try
 				{
-					Sleep(10);
-					ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Zombie mode is full, try again when there are less than ", MaxPlayers.ToString(), " players"));
+					Sleep(3);
+					ExecuteCommand("procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Zombie mode is full, try again when there are less than ", MaxPlayers.ToString(), " players"));
 					int maxTries = 0;
 					while (maxTries++ < 5)
 					{
 						if (!PlayerKickQueue.Contains(SoldierName))
 							break;
 
-						ExecuteCommand("procon.protected.tasks.add", "CZombieMode", "0", "1", "1", "procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Zombie mode is full, try again when there are less than ", MaxPlayers.ToString(), " players"));
+						ExecuteCommand("procon.protected.send", "admin.kickPlayer", SoldierName, String.Concat("Zombie mode is full, try again when there are less than ", MaxPlayers.ToString(), " players"));
 						DebugWrite("OnPlayerAuthenticated: trying to kick " + SoldierName, 4);
 						Sleep(3); // Need time to get kick event
 					}
@@ -579,11 +581,11 @@ namespace PRoConEvents
 				// Team tracking
 				if (Player.TeamID == 1) {
 					HumanCensus.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 7);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 5);
 				}
 				if (Player.TeamID == 2) {
 					ZombieCensus.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 7);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 5);
 				}					
 			}
 			
@@ -591,6 +593,7 @@ namespace PRoConEvents
 			
 			lock (TeamHuman)
 			{
+				DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 5);
 				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
 				
@@ -603,7 +606,7 @@ namespace PRoConEvents
 				}
 			}
 			
-			if (SomeoneMoved)
+			if (SomeoneMoved && GameState == GState.Playing)
 			{
 				DebugWrite("OnListPlayers: move completed, TeamHuman & TeamZombie updated", 3);
 			}
@@ -622,6 +625,10 @@ namespace PRoConEvents
 					}
 					KnownPlayerCount = TeamZombie.Count + TeamHuman.Count;
 				}
+			}
+			else if (GameState != GState.Idle && (HumanCensus.Count+ZombieCensus.Count) == 0)
+			{
+				Reset();
 			}
 		}
 
@@ -642,14 +649,20 @@ namespace PRoConEvents
 		
 		public void HandleChat(string PlayerName, string Message, int TeamId, int SquadId)
 		{
-			String CleanMessage = Message.ToLower().Trim();
+			String CleanMessage = Message.Trim();
 
 			List<string> MessagePieces = new List<string>(CleanMessage.Split(' '));
 
-			String Command = MessagePieces[0];
+			String Command = MessagePieces[0].ToLower();
 
 			if (!Command.StartsWith(CommandPrefix.ToLower()))
+			{
+				if (Regex.Match(CleanMessage, @"(?:help|zombie)", RegexOptions.IgnoreCase).Success)
+				{
+					TellPlayer("Type: !zombie help", PlayerName, false);
+				}
 				return;
+			}
 				
 			DebugWrite("Command: '" + Message + "' => '" + CleanMessage + "'", 3);
 			
@@ -661,7 +674,14 @@ namespace PRoConEvents
 				to be the value of 'command'.
 				*/
 				MessagePieces.Remove(CommandPrefix);
-				Command = MessagePieces[0];
+				if (MessagePieces.Count == 0)
+				{
+					Command = "help";
+				}
+				else
+				{
+					Command = MessagePieces[0].ToLower();
+				}
 			}
 			else
 			{
@@ -672,11 +692,13 @@ namespace PRoConEvents
 				Match CommandMatch = Regex.Match(Command, "^" + CommandPrefix + @"([^\s]+)", RegexOptions.IgnoreCase);
 				if (CommandMatch.Success)
 				{
-					Command = CommandMatch.Groups[1].Value;
+					Command = CommandMatch.Groups[1].Value.ToLower();
 				}
 			}
 			
-			DebugWrite("Command without prefix: " + Command, 4);
+			if (String.IsNullOrEmpty(Command)) Command = "help";
+			
+			DebugWrite("Command without prefix: " + Command, 6);
 			
 			switch (Command)
 			{
@@ -725,6 +747,7 @@ namespace PRoConEvents
 						return;
 					}
 					RestartRound();
+					Reset();
 					break;
 				case "force":
 					// Force a match/round to start
@@ -744,6 +767,7 @@ namespace PRoConEvents
 						return;
 					}
 					NextRound();
+					Reset();
 					break;
 				case "mode":
 					if (!IsAdmin(PlayerName))
@@ -758,6 +782,7 @@ namespace PRoConEvents
 						ZombieModeEnabled = false;
 					TellPlayer("ZombieModeEnabled is now " + ZombieModeEnabled, PlayerName, false);
 					break;
+					Reset();
 				case "rules":
 					TellRules(PlayerName);
 					break;
@@ -781,7 +806,7 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 2) return;
 					string KillMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 
-					DebugWrite(KillMessage, 1);
+					DebugWrite("Kill message: '" + KillMessage + "'", 1);
 					KillPlayer(MessagePieces[1], KillMessage);
 					TellPlayer("Killing " + MessagePieces[1], PlayerName, false);
 					break;
@@ -814,11 +839,11 @@ namespace PRoConEvents
 				default: // "help"
 					if (!IsAdmin(PlayerName))
 					{
-						TellPlayer("Commands: rules, help, status, warn", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, warn", PlayerName);
 					}
 					else
 					{
-						TellPlayer("Commands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, warn", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, warn", PlayerName);
 					}
 					break;
 			}
@@ -829,7 +854,7 @@ namespace PRoConEvents
 		{
 			// This is just to test debug logging
 			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " .", 7);
-			DebugWrite("GameState = " + GameState, 5);
+			DebugWrite("GameState = " + GameState, 6);
 			
 			if (GameState == GState.BetweenRounds)
 			{
@@ -1088,10 +1113,7 @@ namespace PRoConEvents
 			KillTracker.ResetPerRound();
 			
 			// Sanity check
-			if (GameState != GState.Idle && GameState != GState.BetweenRounds)
-			{
-				DebugWrite("OnLevelLoaded: ^8^bERROR^n^0, GameState is invalid: " + GameState, 2);
-			}
+			DebugWrite("OnLevelLoaded: GameState is " + GameState, 3);
 		}
 
 		public override void OnRoundOver(int winningTeamId)
@@ -1486,7 +1508,23 @@ namespace PRoConEvents
 		private void KillPlayerAfterDelay(string PlayerName, int Delay)
 		{
 			DebugWrite("KillPlayerAfterDelay: " + PlayerName + " after " + Delay + " seconds", 3);
-			ExecuteCommand("procon.protected.tasks.add", "KillPlayerAfterDelay", Delay.ToString(), "0", "1", "procon.protected.send", "admin.killPlayer", PlayerName);
+			
+			ThreadStart killerThread = delegate
+			{
+				try 
+				{
+					Sleep(1);
+					ExecuteCommand("procon.protected.send", "admin.killPlayer", PlayerName);
+				}
+				catch (Exception e)
+				{
+					ConsoleException(e.ToString());
+				}
+			};
+			
+			Thread t = new Thread(killerThread);
+			t.Start();
+			Thread.Sleep(1);
 		}
 
 		private void KillPlayer(string PlayerName, string Reason)
@@ -1495,11 +1533,6 @@ namespace PRoConEvents
 
 			if (!String.IsNullOrEmpty(Reason))
 				Announce(String.Concat(PlayerName, ": ", Reason));
-		}
-
-		private void KickPlayerDelayed(string PlayerName, string Reason, int SecsToDelay)
-		{
-			ExecuteCommand("procon.protected.tasks.add", "ZombieKickUser", SecsToDelay.ToString(), "1", "1", "procon.protected.send", "admin.kickPlayer", PlayerName, Reason);
 		}
 
 		private void KickPlayer(string PlayerName, string Reason)
@@ -1811,7 +1844,7 @@ namespace PRoConEvents
 				ZombieCount = (TeamZombie.Count == 0) ? 1 : TeamZombie.Count;
 			}
 			double RatioHumansToZombies = (HumanCount / ZombieCount) * 100.0;
-			int BulletDamage = 5;
+			BulletDamage = 5;
 			
 			
 			if (RatioHumansToZombies >= 75.0)
@@ -1850,7 +1883,7 @@ namespace PRoConEvents
 			bool AdminFlag = AdminUsers.Contains(PlayerName);
 			if (AdminFlag)
 			{
-				TellAll(PlayerName + " is an admin");
+				TellAll(PlayerName + " is an admin", false);
 				DebugWrite("IsAdmin: " + PlayerName + " is an admin", 3);
 			}
 			return AdminFlag;
@@ -1864,7 +1897,7 @@ namespace PRoConEvents
 		private void Announce(string Message)
 		{
 			if (GameState == GState.BetweenRounds) return;
-			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), AnnounceDisplayType.ToString());
+			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "all");
 		}
 
 		private void TellAll(string Message, bool AlsoYell)
@@ -1915,7 +1948,7 @@ namespace PRoConEvents
 			Rules.Add("Zombies use knife/defib/repair tool only!");
 			Rules.Add("Zombies are hard to kill");
 			Rules.Add("Humans use guns only, no explosives!");
-			Rules.Add("When a zombie kills you, you are infected and moved to zombie team!");
+			Rules.Add("When a zombie kills you, you are infected and moved to the zombie team!");
 			Rules.Add("Zombies win by infecting all humans");
 			if (ZombieKillLimitEnabled) Rules.Add("Humans win by killing " + ZombiesKilledToSurvive + " zombies");
 			
@@ -1987,7 +2020,10 @@ namespace PRoConEvents
 					status = "No one is playing zombie mode (Idle)!";
 					break;
 				case GState.Waiting:
-					status = "Waiting for minimum number of players to spawn (Waiting)!";
+					lock (TeamHuman)
+					{
+						status = "Waiting for " + (MinimumHumans+MinimumZombies-TeamHuman.Count-TeamZombie.Count) + " more players to spawn (Waiting)!";
+					}
 					break;
 				case GState.Playing:
 					status = "A match is in progress (Playing)!";
@@ -2011,10 +2047,10 @@ namespace PRoConEvents
 			
 			if (IsPlaying)
 			{
-				TellPlayer("Humans have killed " + KillTracker.GetZombiesKilled() + " zombies!", SoldierName, false);
 				lock (TeamHuman)
 				{
-					TellPlayer("There are " + TeamHuman.Count + " human survivors!", SoldierName, false);
+					TellPlayer("HUMANS: N=" + TeamHuman.Count + ",K=" + KillTracker.GetZombiesKilled(), SoldierName, false);
+					TellPlayer("ZOMBIES: N=" + TeamZombie.Count + ",D=" + BulletDamage, SoldierName, false);
 				}
 			}
 		}
@@ -2035,6 +2071,8 @@ namespace PRoConEvents
 			ServerSwitchedCount = 0;
 			PatientZero = null;
 			GameState = GState.Idle;
+			BulletDamage = 100;
+			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 		}
 		
 		private void HaltMatch()
@@ -2044,6 +2082,8 @@ namespace PRoConEvents
 			PlayerState.ResetPerMatch();
 			PatientZero = null;
 			GameState = GState.Waiting;
+			BulletDamage = 100;
+			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 		}
 
 		private enum MessageType { Warning, Error, Exception, Normal };
