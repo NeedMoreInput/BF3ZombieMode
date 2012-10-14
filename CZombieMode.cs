@@ -116,7 +116,7 @@ namespace PRoConEvents
 		
 		private GState GameState = GState.Idle;
 		
-		private int HeartBeat = 0;
+		private GState OldGameState = GState.BetweenRounds;
 
 		#endregion
 
@@ -512,8 +512,10 @@ namespace PRoConEvents
 				DebugWrite(String.Concat("Zombie ", KillerName, " just killed human ", VictimName, " with ", DamageType), 2);
 
 				KillTracker.HumanKilled(KillerName, VictimName);
+				
+				DebugWrite("Zombie Kill: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " vs " + DeathsNeededToBeInfected, 5);
 
-				if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
+				// TBD - BROKEN : if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
 				{					
 					Infect(KillerName, VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
@@ -572,12 +574,13 @@ namespace PRoConEvents
 		public override void OnListPlayers(List<CPlayerInfo> Players, CPlayerSubset Subset)
 		{
 			PlayerList = Players;
-			
-			if (Players.Count > 0) DebugWrite("OnListPlayers: " + Players.Count + " players", 4);
-			if (Players.Count > 0 || (HeartBeat++ % 10) == 0) DebugWrite("OnListPlayers: GameState = " + GameState, 5);
-			
+					
 			if (ZombieModeEnabled == false)
 				return;
+
+			if (Players.Count > 0) DebugWrite("OnListPlayers: " + Players.Count + " players", 4);
+			if (OldGameState != GameState) DebugWrite("OnListPlayers: GameState = " + GameState, 3);
+			OldGameState = GameState;
 				
 			if (CheckIdle(Players))
 			{
@@ -671,7 +674,7 @@ namespace PRoConEvents
 
 			if (!Command.StartsWith(CommandPrefix.ToLower()))
 			{
-				if (Regex.Match(CleanMessage, @"(?:help|zombie|rules)", RegexOptions.IgnoreCase).Success)
+				if (Regex.Match(CleanMessage, @"(?:help|zombie|rules|work)", RegexOptions.IgnoreCase).Success)
 				{
 					TellPlayer("Type: !zombie help", PlayerName, false);
 				}
@@ -875,7 +878,7 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ..", 7);
+			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ...", 7);
 			DebugWrite("GameState = " + GameState, 6);
 			
 			if (GameState == GState.BetweenRounds)
@@ -1144,8 +1147,6 @@ namespace PRoConEvents
 
 		public override void OnRoundOver(int winningTeamId)
 		{
-			HeartBeat = 0;
-			
 			if (ZombieModeEnabled == false) 
 			{
 				GameState = GState.Idle;
@@ -1921,11 +1922,22 @@ namespace PRoConEvents
 		{
 			ExecuteCommand("procon.protected.pluginconsole.write", str);
 		}
+		
+		private void LogChat(string Message, string Who)
+		{
+			ExecuteCommand("procon.protected.chat.write", "ZMODE to " + Who + "> " + Message);
+		}
+		
+		private void LogChat(string Message)
+		{
+			ExecuteCommand("procon.protected.chat.write", "ZMODE> " + Message);
+		}
 
 		private void Announce(string Message)
 		{
 			if (GameState == GState.BetweenRounds) return;
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "all");
+			LogChat(Message);
 		}
 
 		private void TellAll(string Message, bool AlsoYell)
@@ -1934,6 +1946,7 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds) return;
 			if (AlsoYell) Announce(Message);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "all");
+			if (!AlsoYell) LogChat(Message);
 		}
 
 		private void TellAll(string Message)
@@ -1947,6 +1960,7 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds) return;
 			if (AlsoYell) ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "team", TeamId);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "team", TeamId);
+			LogChat(Message, (TeamId == HUMAN_TEAM) ? "humans" : "zombies");
 		}
 
 		private void TellTeam(string Message, string TeamId)
@@ -1965,6 +1979,7 @@ namespace PRoConEvents
 		private void TellPlayer(string Message, string SoldierName)
 		{
 			TellPlayer(Message, SoldierName, true);
+			LogChat(Message, SoldierName);
 		}
 
 		private void TellRules(string SoldierName)
@@ -2101,7 +2116,6 @@ namespace PRoConEvents
 			GameState = GState.Idle;
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
-			HeartBeat = 0;
 		}
 		
 		private void HaltMatch()
@@ -2113,7 +2127,6 @@ namespace PRoConEvents
 			GameState = GState.Waiting;
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
-			HeartBeat = 0;
 		}
 
 		private enum MessageType { Warning, Error, Exception, Normal };
@@ -2179,15 +2192,15 @@ namespace PRoConEvents
 
 	enum ZombieModeTeam  {Human,Zombie};
 
-	struct ZombieModeKillTrackerKills
+	class ZombieModeKillTrackerKills
 	{
-		public int KillsAsZombie;
+		public int KillsAsZombie = 0;
 
-		public int KillsAsHuman;
+		public int KillsAsHuman = 0;
 
-		public int DeathsAsZombie;
+		public int DeathsAsZombie = 0;
 
-		public int DeathsAsHuman;
+		public int DeathsAsHuman = 0;
 	}
 
 	class ZombieModeKillTracker
