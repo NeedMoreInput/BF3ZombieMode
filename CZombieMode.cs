@@ -1999,7 +1999,7 @@ namespace PRoConEvents
 			}
 
 			// Humans got enough kills?
-			if (KillTracker.GetZombiesKilled() >= Needed)
+			if (HCount > 0 && KillTracker.GetZombiesKilled() >= Needed)
 			{
 				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
 				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
