@@ -79,7 +79,7 @@ namespace PRoConEvents
 
 		private int DeathsNeededToBeInfected = 1;
 
-		private int ZombiesKilledToSurvive = 50; // TBD: to be made adaptive
+		//private int ZombiesKilledToSurvive = 50;
 
 		private bool ZombieKillLimitEnabled = true;
 
@@ -140,6 +140,24 @@ namespace PRoConEvents
 		int AgainstCountlessZombies = 100; // 1 to 4+ ratio humans:zombies
 		
 		int BulletDamage = 100; // Current setting
+
+		#endregion
+
+		#region HumanVictoryVars
+
+		int KillsIf8OrLessPlayers = 20;
+
+		int KillsIf12To9Players = 25;
+
+		int KillsIf16To13Players = 30;
+
+		int KillsIf20To17Players = 40;
+
+		int KillsIf24To21Players = 50;
+
+		int KillsIf28To25Players = 60;
+		
+		int KillsIf32To29Players = 70;
 
 		#endregion
 
@@ -600,33 +618,7 @@ namespace PRoConEvents
 				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + TeamZombie.Count + " zombies with " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies killed", 2);
 			}
 			
-			// Victory conditions
-			
-			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive) // TBD: to be made adaptive
-			{
-				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
-				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
-				TellAll(msg);
-				CountdownNextRound(HUMAN_TEAM);
-			}
-			else 
-			{
-				int Surviving = 0;
-				int Infecteds = 0;
-				lock (TeamHuman)
-				{
-					Surviving = TeamHuman.Count;
-					Infecteds = TeamZombie.Count;
-				}
-				if (Surviving == 0 && Infecteds > MinimumZombies)
-				{
-					string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
-					DebugWrite("^7^b ***** " + msg + "^n^0", 1);
-					TellAll(msg);
-					CountdownNextRound(ZOMBIE_TEAM);
-				}
-			}
-
+			CheckVictoryConditions();
 		}
 
 		public override void OnListPlayers(List<CPlayerInfo> Players, CPlayerSubset Subset)
@@ -1959,6 +1951,77 @@ namespace PRoConEvents
 			t.Start();
 			
 			Thread.Sleep(2);
+		}
+
+		private void CheckVictoryConditions()
+		{
+			// Victory conditions
+			
+			int Needed = 0;
+			int TotalCount = 0;
+			lock(TeamHuman)
+			{
+				TotalCount = TeamHuman.Count + TeamZombie.Count;
+			}
+
+			if (TotalCount <= 8)
+			{
+				Needed = KillsIf8OrLessPlayers;
+			}
+			else if (TotalCount <= 12 && TotalCount >= 9)
+			{
+				Needed = KillsIf12To9Players;
+			}
+			else if (TotalCount <= 16 && TotalCount >= 13)
+			{
+				Needed = KillsIf16To13Players;
+			}
+			else if (TotalCount <= 20 && TotalCount >= 17)
+			{
+				Needed = KillsIf20To17Players;
+			}
+			else if (TotalCount <= 24 && TotalCount >= 21)
+			{
+				Needed = KillsIf24To21Players;
+			}
+			else if (TotalCount <= 28 && TotalCount >= 25)
+			{
+				Needed = KillsIf28To25Players;
+			}
+			else if (TotalCount <= 32 && TotalCount >= 29)
+			{
+				Needed = KillsIf32To29Players;
+			}
+			else
+			{
+				ConsoleError("CheckVictoryConditions: bad TotalCount");
+				return;
+			}
+
+			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive)
+			{
+				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
+				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+				TellAll(msg);
+				CountdownNextRound(HUMAN_TEAM);
+			}
+			else 
+			{
+				int Surviving = 0;
+				int Infecteds = 0;
+				lock (TeamHuman)
+				{
+					Surviving = TeamHuman.Count;
+					Infecteds = TeamZombie.Count;
+				}
+				if (Surviving == 0 && Infecteds > MinimumZombies)
+				{
+					string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
+					DebugWrite("^7^b ***** " + msg + "^n^0", 1);
+					TellAll(msg);
+					CountdownNextRound(ZOMBIE_TEAM);
+				}
+			}
 		}
 
 		#endregion
