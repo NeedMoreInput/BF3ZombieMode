@@ -2340,6 +2340,22 @@ namespace PRoConEvents
 			Thread.Sleep(Seconds * 1000);
 		}
 
+		private String PlayerNameMatch(string Name)
+		{
+			if (String.IsNullOrEmpty(Name) || PlayerList.Count == 0) return null;
+
+			foreach (CPlayerInfo Player in PlayerList)
+			{
+				if (Regex.Match(Player.SoldierName, Name, RegexOptions.IgnoreCase).Success)
+				{
+					return Player.SoldierName;
+				}
+			}
+
+			// Otherwise
+			return null;
+		}
+
 		#endregion
 
 	}
