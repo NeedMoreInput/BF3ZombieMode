@@ -82,9 +82,55 @@ BF3 Zombie Mode
 <p>This is a lists of weapon types humans are allowed to use. Weapons that are <i>On</i> are allowed, weapons that are <i>Off</i> are not allowed and will result in warnings and a kick if a human player uses them. The default settings are all guns allowed and do not allow explosives (grenades, C4, claymore, M320 noob tube, etc.) or missiles (RPG, SMAW).</p>
 
 <h2>Commands</h2>
-<p>TBD</p>
 
-<h2>Development</h2>
+<p>These are in-game commands for managing players and the mode. Some are available to all players, some are for admins only (see <b>Admin Users</b> in <b>Settings</b>). For all of the following descriptions, the default <b>Command Prefix</b> of <i>!zombie</i> is assumed. If you set a different prefix, substitute your prefix into the following.</p>
+
+<h3>Commands for all players</h3>
+
+<p><b>!zombie help</b>: Shows list of commands available to the player.</p>
+
+<p><b>!zombie idle</b>: Shows how long the player typing the command has been idle and whether or not the player is spawned into the round.</p>
+
+<p><b>!zombie rules</b>: Scrolls all of the Zombie Mode rules to the player.</p>
+
+<p><b>!zombie status</b>: Shows the status of the match to the player, for example, if the mode is waiting for more players to join, or if it is Idle (waiting for a player to spawn so that it can reset), counting down to the next match, etc. If a match is in progress (Playing), it also shows some statistics for the match, for example:
+<pre>
+HUMANS: N=4,K=23
+ZOMBIES: N=16,D=100
+</pre>
+Where <b>N</b> is the number of players on that team, <b>K</b> is the number of zombies the humans have killed, and <b>D</b> is the current bullet damage.</p>
+
+<p><b>!zombie warn</b> <i>name</i> <i>reason</i>: Sends a warning yell to the player with the specified <i>name</i>. The <i>reason</i> is one or more words. For example:
+<pre>
+!zombie warn PapaCharlie9 Quit glitching u noob!
+</pre>
+will yell the message "Quit glitching u noob!" to PapaCharlie9.</p>
+
+<h3>Commands for Admins only</h3>
+
+<p><b>!zombie force</b>: Force a match to start, even if there are not enough players. Useful if players aren't spawning fast enough to get a match started or if the plugin gets into a confused state (please report a bug so we can fix it).</p>
+
+<p><b>!zombie heal</b> <i>name</i>: Kills the player with the specified <i>name</i> and if they are on the zombie team, force moves them to the human team. Useful for correting mistakes that the plugin might make (please report a bug so we can fix it).</p>
+
+<p><b>!zombie infect</b> <i>name</i>: Kills the player with the specified <i>name</i> and if they are on the human team, force moves them to the zombie team. Useful for dealing with human glitchers or idlers.</p>
+
+<p><b>!zombie kick</b> <i>name</i> <i>reason</i>: Kicks the player with the specified <i>name</i>. The <i>reason</i> is one or more words. For example:
+<pre>
+!zombie kick PapaCharlie9 Too much glitching!
+</pre>
+will kick PapaCharlie9 for "Too much glitching!". Useful to get rid of cheaters.</p>
+
+<p><b>!zombie kill</b> <i>name</i>: Kills the player with the specified <i>name</i>. Useful to force a glitcher to respawn or a player ignoring warnings to pay more attention.</p>
+
+<p><b>!zombie mode</b> <i>on</i>/<i>off</i>: Changes the <b>Zombie Mode Enabled</b> setting. Useful if you want to switch a normal TDM round to Zombie Mode or vice versa.</p>
+
+<p><b>!zombie next</b>: Ends the current map round/level and loads the next map round/level. Useful to try a new map if you have <b>Rematch Enabled</b> set to <i>On</i>.</p>
+
+<p><b>!zombie rematch</b> <i>on</i>/<i>off</i>: Changes the <b>Rematch Enabled</b> setting</p>
+
+<p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
+
+<h2>Hints & Tips</h2>
 <p>TBD</p>
 
 <h2>Download</h2>
