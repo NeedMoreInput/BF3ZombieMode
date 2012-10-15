@@ -676,21 +676,7 @@ namespace PRoConEvents
 			if (GameState == GState.Playing)
 			{
 				if (SomeoneMoved) DebugWrite("OnListPlayers: some players went missing, TeamHuman & TeamZombie updated", 5);
-				int z = 0;
-				int h = 0;
-				lock (TeamHuman)
-				{
-					z = TeamZombie.Count;
-					h = TeamHuman.Count;
-				}
-				if (z == 0 && h > 0)
-				{
-					string msg = "HUMANS WIN, no zombies left on the server!"; // $$$ - custom message
-					DebugWrite("^2^b ***** " + msg + "^n^0", 1);
-					TellAll(msg);
-					CountdownNextRound(HUMAN_TEAM);
-					return;
-				}
+				CheckVictoryConditions();
 			}		
 
 			if (GameState == GState.BetweenRounds)
@@ -1959,9 +1945,13 @@ namespace PRoConEvents
 			
 			int Needed = 0;
 			int TotalCount = 0;
+			int HCount = 0;
+			int ZCount = 0;
 			lock(TeamHuman)
 			{
-				TotalCount = TeamHuman.Count + TeamZombie.Count;
+				HCount = TeamHuman.Count;
+				ZCount = TeamZombie.Count;
+				TotalCount = HCount + ZCount;
 			}
 
 			if (TotalCount <= 8)
@@ -1998,7 +1988,18 @@ namespace PRoConEvents
 				return;
 			}
 
-			if (KillTracker.GetZombiesKilled() >= ZombiesKilledToSurvive)
+			// All zombies left the server?
+			if (ZCount == 0 && HCount > 0)
+			{
+				string msg = "HUMANS WIN, no zombies left on the server!"; // $$$ - custom message
+				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+				TellAll(msg);
+				CountdownNextRound(HUMAN_TEAM);
+				return;
+			}
+
+			// Humans got enough kills?
+			if (KillTracker.GetZombiesKilled() >= Needed)
 			{
 				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
 				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
@@ -2007,14 +2008,8 @@ namespace PRoConEvents
 			}
 			else 
 			{
-				int Surviving = 0;
-				int Infecteds = 0;
-				lock (TeamHuman)
-				{
-					Surviving = TeamHuman.Count;
-					Infecteds = TeamZombie.Count;
-				}
-				if (Surviving == 0 && Infecteds > MinimumZombies)
+				// All humans infected?
+				if (HCount == 0 && ZCount > MinimumZombies)
 				{
 					string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
 					DebugWrite("^7^b ***** " + msg + "^n^0", 1);
@@ -2667,7 +2662,8 @@ namespace PRoConEvents
 		public double DoubleVal = 0;
 	}
 	
-	// Always at the end of the file
+	/* Always at the end of the file */
+
 	class DescriptionClass
 	{
 		public String HTML = @"
