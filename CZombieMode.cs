@@ -2680,7 +2680,7 @@ namespace PRoConEvents
 
 <p>The plugin is driven by players spawning. Until a minimum number of individual players spawns, the match won't start. See <b>Minimum Zombies</b> and <b>Minimum Humans</b> below.</p>
 
-<p>Recommended server settings are here: <a href=\"http://www.phogue.net/forumvb/forum.php\">TBD</a></p>
+<p>Recommended server settings are here: <a href=http://www.phogue.net/forumvb/forum.php>TBD</a></p>
 
 <h2>Settings</h2>
 <p>There are a large number of configurable setttings, divided into sections.</p>
@@ -2769,7 +2769,7 @@ Where <b>N</b> is the number of players on that team, <b>K</b> is the number of 
 <pre>
 !zombie warn PapaCharlie9 Quit glitching u noob!
 </pre>
-will yell the message "Quit glitching u noob!" to PapaCharlie9.</p>
+will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 
 <h3>Commands for Admins only</h3>
 
@@ -2783,7 +2783,7 @@ will yell the message "Quit glitching u noob!" to PapaCharlie9.</p>
 <pre>
 !zombie kick PapaCharlie9 Too much glitching!
 </pre>
-will kick PapaCharlie9 for "Too much glitching!". Useful to get rid of cheaters.</p>
+will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.</p>
 
 <p><b>!zombie kill</b> <i>name</i>: Kills the player with the specified <i>name</i>. Useful to force a glitcher to respawn or a player ignoring warnings to pay more attention.</p>
 
@@ -2800,7 +2800,7 @@ will kick PapaCharlie9 for "Too much glitching!". Useful to get rid of cheaters.
 
 <h2>Download</h2>
 
-<p>Do links work? <a href=\"https://github.com/m4xxd3v/BF3ZombieMode/downloads\">Download from this GitHub page!</a></p>
+<p>Do links work? <a href=https://github.com/m4xxd3v/BF3ZombieMode/downloads>Download from this GitHub page!</a></p>
 
 <h3>Changelog</h3>
 <blockquote><h4>0.1.1 (15-OCT-2012)</h4>
