@@ -69,9 +69,9 @@ BF3 Zombie Mode
 
 <p><b>Against Equal Numbers</b>: the default value is <i>15</i>. When humans and zombies are roughly equal in number, betwee 3-to-2 and 2-to-3 (e.g., 8 vs 11).</p>
 
-<p><b>Against Many Zombies</b>: the default value is <i>30</i>. When zombies outnumber humans between 3-to-2 and 3-to-1 (e.g., 5 vs 14).</p>
+<p><b>Against Many Zombies</b>: the default value is <i>30</i>. When zombies outnumber humans between 3-to-2 and 4-to-1 (e.g., 5 vs 14).</p>
 
-<p><b>Against Countless Zombies</b>: the default value is <i>100</i>. When zombies outnumber humans 3-to-1 or more (e.g., 2 vs 17).</p>
+<p><b>Against Countless Zombies</b>: the default value is <i>100</i>. When zombies outnumber humans 4-to-1 or more (e.g., 2 vs 17).</p>
 
 <h3>Zombie Weapons</h3>
 
