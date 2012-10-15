@@ -129,15 +129,15 @@ namespace PRoConEvents
 
 		#region DamagePercentageVars
 
-		int Against1Or2Zombies = 5;  // 4+ to 1 ratio humans(>=75%]:zombies
+		int Against1Or2Zombies = 5;  // 3+ to 1 ratio humans:zombies
 
-		int AgainstAFewZombies = 10; // 4:1 to 3:2 ratio humans(75%-60%]:zombies
+		int AgainstAFewZombies = 10; // 3:1 to 3:2 ratio humans:zombies
 
-		int AgainstEqualNumbers = 15; // 3:2 to 2:3 ratio humans(60%-40%]:zombies
+		int AgainstEqualNumbers = 15; // 3:2 to 2:3 ratio humans:zombies
 
-		int AgainstManyZombies = 30; // 2:3 to 1:4 ratio humans(40%-25%):zombies
+		int AgainstManyZombies = 30; // 2:3 to 1:4 ratio humans:zombies
 
-		int AgainstCountlessZombies = 100; // 1 to 4+ ratio humans[<=25%):zombies
+		int AgainstCountlessZombies = 100; // 1 to 4+ ratio humans:zombies
 		
 		int BulletDamage = 100; // Current setting
 
@@ -897,7 +897,8 @@ namespace PRoConEvents
 					string KillMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 
 					DebugWrite("Kill message: '" + KillMessage + "'", 1);
-					KillPlayer(MessagePieces[1], KillMessage);
+					TellPlayer(KillMessage, MessagePieces[1]);
+					KillPlayerAfterDelay(MessagePieces[1], AnnounceDisplayLength);
 					TellPlayer("Killing " + MessagePieces[1], PlayerName, false);
 					break;
 
@@ -1664,7 +1665,7 @@ namespace PRoConEvents
 
 		private void Warn(String PlayerName, String Message)
 		{
-			ExecuteCommand("procon.protected.send", "admin.yell", Message, WarningDisplayLength.ToString(), "all", PlayerName);
+			ExecuteCommand("procon.protected.send", "admin.yell", Message, WarningDisplayLength.ToString(), PlayerName);
 		}
 
 		private void KillPlayerAfterDelay(string PlayerName, int Delay)
@@ -1689,7 +1690,7 @@ namespace PRoConEvents
 			Thread.Sleep(1);
 		}
 
-		private void KillPlayer(string PlayerName, string Reason)
+		private void KillPlayer(string PlayerName)
 		{
 			KillPlayerAfterDelay(PlayerName, 1);
 		}
