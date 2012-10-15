@@ -61,7 +61,7 @@ BF3 Zombie Mode
 
 <h3>Human Damage Percentage</h3>
 
-<p>At the start of a match, when there is only one or a very few zombies, zombies have to be very tough and hard to kill or else they will never get close to a human to infect them. This is implemented with vars.bulletDamage. The values of the following settings specify the vars.bulletDamage depend on the number of zombies that the humans face. The lower the numbers, the harder the zombies are to kill.</p>
+<p>At the start of a match, when there is only one or a very few zombies, zombies have to be very tough and hard to kill or else they will never get close to a human to infect them. This is implemented with vars.bulletDamage. The values of the following settings specify the vars.bulletDamage depending on the number of zombies that the humans face. The lower the numbers, the harder the zombies are to kill.</p>
 
 <p><b>Against 1 Or 2 Zombies</b>: the default value is <i>5</i>. When humans outnumber zombies 3-to-1 or more (e.g., 18 vs 1).</p>
 
@@ -72,6 +72,14 @@ BF3 Zombie Mode
 <p><b>Against Many Zombies</b>: the default value is <i>30</i>. When zombies outnumber humans between 3-to-2 and 3-to-1 (e.g., 5 vs 14).</p>
 
 <p><b>Against Countless Zombies</b>: the default value is <i>100</i>. When zombies outnumber humans 3-to-1 or more (e.g., 2 vs 17).</p>
+
+<h3>Zombie Weapons</h3>
+
+<p>This is a lists of weapon types zombies are allowed to use. Weapons that are <i>On</i> are allowed, weapons that are <i>Off</i> are not allowed and will result in warnings and a kick if a zombie player uses them. The default settings allow knife, melee, defib and repair tool and do not allow anything else.</p>
+
+<h3>Human Weapons</h3>
+
+<p>This is a lists of weapon types humans are allowed to use. Weapons that are <i>On</i> are allowed, weapons that are <i>Off</i> are not allowed and will result in warnings and a kick if a human player uses them. The default settings are all guns allowed and do not allow explosives (grenades, C4, claymore, M320 noob tube, etc.) or missiles (RPG, SMAW).</p>
 
 <h2>Commands</h2>
 <p>TBD</p>
