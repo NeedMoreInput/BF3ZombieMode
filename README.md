@@ -7,11 +7,15 @@ BF3 Zombie Mode
 
 <p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the _Infected_ or _Zombie_ variant play.</p>
 
+<p><b>NOTE:</b> the game server <b>must</b> be run in unranked mode (vars.ranked false). Zombie Mode will not work on a ranked server.</p>
+
 <p>When there are a minimum number of players spawned, all of the players are moved to the human team (US), except for one zombie (RU). With default settings, Zombies can use knife/defib/repair tool <i>only</i> for weapons and Humans can use any weapon <i>except</i> explosives (grenades, C4, Claymores) or missiles; the allowed/forbidden weapon settings are configurable. Zombies are hard to kill. Every time a zombie kills a human, the human becomes infected and is moved to the zombie team. Humans win by killing a minimum number of zombies (configurable) or when all the zombies leave the server. Zombies win by infecting all the humans or when all the humans leave the server.</p>
 
 <p>The maximum number of players is half your server slots, so if you have a 64-slot server, you can have a max of 32 players.</p>
 
-Recommended server settings are here: <a href="http://www.phogue.net/forumvb/forum.php">TBD</a>
+<p>The plugin is driven by players spawning. Until a minimum number of individual players spawns, the match won't start. See <b>Minimum Zombies</b> and <b>Minimum Humans</b> below.</p>
+
+<p>Recommended server settings are here: <a href="http://www.phogue.net/forumvb/forum.php">TBD</a></p>
 
 <h2>Settings</h2>
 <p>There are a large number of configurable setttings, divided into sections.</p>
@@ -19,7 +23,7 @@ Recommended server settings are here: <a href="http://www.phogue.net/forumvb/for
 <h3>Admin Settings</h3>
 <p><b>Zombie Mode Enabled</b>: <i>On/Off</i>, default is <i>On</i>.</p>
 
-<p><b>Command Prefix</b>: Chat text that represents a command, default is <i>!zombie</i>. May be set to a single character, for example <i>@</i>, so that instead of a command being <i>!zombie rules</i>, the command would just be <i>@rules</i>.</p>
+<p><b>Command Prefix</b>: Chat text that represents an in-game command, default is <i>!zombie</i>. May be set to a single character, for example <i>@</i>, so that instead of the rules command being <i>!zombie rules</i>, the command would just be <i>@rules</i>.</p>
 
 <p><b>Announce Display Length</b>: Time in seconds that announcements are shown as yells, default is <i>10</i>.</p>
 
@@ -33,7 +37,27 @@ Recommended server settings are here: <a href="http://www.phogue.net/forumvb/for
 
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
 
-<p><b>Admin Users</b>: A table of soldier names that will permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
+<p><b>Admin Users</b>: A table of soldier names that will be permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
+
+<h3>Game Settings</h3>
+
+<p><b>Max Players</b>: Any players that try to join above this number will be kicked immediately. Make sure this number is equal to or less than <b>half</b> of your maximum slot count for your game server. For example, if you have a 48 slot server, set the maximum no higher than 24. This is a limitation of BF3 game servers, you can only use half your slots for this mode. The default value is <i>32</i>.</p>
+
+<p><b>Minimum Zombies</b>: The number of players that will start a match as zombies. The default value is <i>1</i>.</p>
+
+<p><b>Minimum Humans</b>: The number of players that will start a match as humans. The default value is <i>3</i>. Note: the sum of <b>Minimum Zombies</b> and <b>Minimum Humans</b> (default: 4) is the minimum number of players needed to start a match. Until that minimum number spawns into the round, the Zombie Mode will wait and normal Team Deathmatch rules will apply.</p>
+
+<p><b>Zombie Kill Limit Enabled</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, Humans must kill the number of zombies specified in <b>Zombies Killed To Survive</b> in order to win. If <i>Off</i>, the last human left standing is the winner.</p>
+
+<p><b>Zombies Killed To Survive</b>: The number of zombies that the human team must kill in order to win the match. The default value is <i>50</i>.</p>
+
+<p><b>Deaths Needed To Be Infected</b>: The number of times a human must be killed by a zombie before the human becomes infected and is forced to switch to the zombie team. The default value is <i>1</i>.</p>
+
+<p><b>Infect Suicides</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, a human that suicides becomes a zombie. If <i>Off</i>, the human stays human but still dies.</p>
+
+<p><b>New Players Join Humans</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, any new players that join the server will be force moved to the human team. If <i>Off</i>, any new players that join the server will be force moved to the zombie team.</p>
+
+<p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back, but on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
 
 <h2>Commands</h2>
 <p>TBD</p>
