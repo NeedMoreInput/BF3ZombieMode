@@ -121,6 +121,8 @@ namespace PRoConEvents
 		private GState GameState = GState.Idle;
 		
 		private GState OldGameState = GState.BetweenRounds;
+		
+		private DescriptionClass Description = new DescriptionClass();
 
 		#endregion
 
@@ -457,15 +459,21 @@ namespace PRoConEvents
 
 			if (GameState != GState.Playing)
 				return;
+			
+			// Extract the short weapon name
+			Match WeaponMatch = Regex.Match(info.DamageType, @"Weapons/[^/]*/([^/]*)", RegexOptions.IgnoreCase);
+			String WeaponName = (WeaponMatch.Success) ? WeaponMatch.Groups[1].Value : info.DamageType;
 
-			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + info.DamageType, 4);
+			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + WeaponName, 4);
 			
 			
 			// Killed by admin?
 			if (info.DamageType == "Death")
 				return;
+				
+			const String INDIRECT_KILL = "INDIRECT KILL";
 
-			String KillerName = info.Killer.SoldierName;
+			String KillerName = (String.IsNullOrEmpty(info.Killer.SoldierName)) ?  INDIRECT_KILL : info.Killer.SoldierName;
 
 			String KillerTeam = info.Killer.TeamID.ToString();
 
@@ -493,11 +501,14 @@ namespace PRoConEvents
 				InfectMessage = "*** No humans left!"; // $$$ - custom message
 			}
 
-			if (ValidateWeapon(info.DamageType, KillerTeam) == false)
+			if (ValidateWeapon(DamageType, KillerTeam) == false)
 			{
-				DebugWrite(String.Concat(KillerName, " invalid kill with ", info.DamageType, "!"), 2);
+				DebugWrite(String.Concat(KillerName, " invalid kill with ", WeaponName, "!"), 2);
+
+				if (KillerName == INDIRECT_KILL)
+					return;
 				
-				String msg = "ZOMBIE RULE VIOLATION! " + info.DamageType + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
+				String msg = "ZOMBIE RULE VIOLATION! " + WeaponName + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
 				
 				TellAll(KillerName + " => " + msg);
 				
@@ -524,7 +535,7 @@ namespace PRoConEvents
 			{
 				KillTracker.ZombieKilled(KillerName, VictimName);
 
-				DebugWrite(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", DamageType), 3);
+				DebugWrite(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", WeaponName), 3);
 								
 				TellAll("*** Humans killed " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies needed to win!"); // $$$ - custom message
 
@@ -534,12 +545,12 @@ namespace PRoConEvents
 					// Infect player
 					Infect("Contact Kill", KillerName);
 					// overwrite infect yell
-					TellPlayer("You infected yourself with that " + info.DamageType + " kill!", KillerName); // $$$ - custom message
+					TellPlayer("You infected yourself with that " + WeaponName + " kill!", KillerName); // $$$ - custom message
 				}
 			}
 			else if (KillerTeam == ZOMBIE_TEAM && VictimTeam == HUMAN_TEAM)
 			{
-				DebugWrite(String.Concat("Zombie ", KillerName, " just killed human ", VictimName, " with ", DamageType), 2);
+				DebugWrite(String.Concat("Zombie ", KillerName, " just killed human ", VictimName, " with ", WeaponName), 2);
 
 				KillTracker.HumanKilled(KillerName, VictimName);
 				
@@ -547,7 +558,7 @@ namespace PRoConEvents
 				{
 					if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
 					{
-						DebugWrite("^4SUCCESFUL^0 Infection Test: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " == " + DeathsNeededToBeInfected, 5);
+						DebugWrite("^4SUCCESSFUL^0 Infection Test: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " == " + DeathsNeededToBeInfected, 5);
 					}
 					else
 					{
@@ -574,12 +585,12 @@ namespace PRoConEvents
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
 				}
 			}
-			else if (KillerName == "")
+			else if (KillerName == INDIRECT_KILL)
 			{
 				if (InfectSuicides)
 				{
-					DebugWrite("Misfortune infect: " + VictimName, 2);
-					Infect("Misfortune ", VictimName);
+					DebugWrite("Bad luck infect: " + VictimName, 2);
+					Infect("Bad luck ", VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
 				}
 			}
@@ -743,7 +754,7 @@ namespace PRoConEvents
 				return;
 			}
 				
-			DebugWrite("Command: '" + Message + "' => '" + CleanMessage + "'", 3);
+			DebugWrite("Command: '" + Message + "' => '" + CleanMessage + "'", 1);
 			
 			if (CommandPrefix.Length > 1 && Command == CommandPrefix)
 			{
@@ -1158,7 +1169,7 @@ namespace PRoConEvents
 			else if (PlayerList.Count >= Need && GameState == GState.Waiting)
 			{
 				TellAll("New match starting ... counting down ..."); // $$$ - custom message
-				CountdownNextRound(ZOMBIE_TEAM); // Sets GameState to CountingDown or NeedsSpawn
+				CountdownNextRound(ZOMBIE_TEAM); // Sets GameState to CountingDown or NeedSpawn
 				return;
 			}
 			
@@ -1166,6 +1177,7 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn)
 			{
 				GameState = GState.Playing;
+				DebugWrite("--- Version " + GetPluginVersion() + " ---", 3);
 				DebugWrite("^b^2****** MATCH STARTING WITH " + PlayerList.Count + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 3);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
@@ -1312,10 +1324,12 @@ namespace PRoConEvents
 		{
 			//System.Diagnostics.Debugger.Break();
 			ConsoleLog("^b^2Enabled... It's Game Time!");
+			ConsoleLog("--- Version " + GetPluginVersion() + " ---");
 		}
 
 		public void OnPluginDisable()
 		{
+			ConsoleLog("--- Version " + GetPluginVersion() + " ---");
 			ConsoleLog("^b^2Disabled :(");
 			Reset();
 		}
@@ -1329,7 +1343,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.0";
+			return "0.1.1";
 		}
 
 		public string GetPluginAuthor()
@@ -1344,7 +1358,7 @@ namespace PRoConEvents
 
 		public string GetPluginDescription()
 		{
-			return "This plugin enables a zombie infection mode type game play";
+			return Description.HTML;
 		}
 
 
@@ -1731,7 +1745,7 @@ namespace PRoConEvents
 
 		private void MakeHuman(string PlayerName)
 		{
-			Announce(String.Concat(PlayerName, " has joined the fight for survival!")); // $$$ - custom message
+			TellAll(String.Concat(PlayerName, " has joined the fight for survival!"), false); // $$$ - custom message
 			
 			DebugWrite("MakeHuman: " + PlayerName, 3);
 
@@ -2317,7 +2331,7 @@ namespace PRoConEvents
 		
 		private void DebugValue(string Name, string BadValue, string Message, string NewValue)
 		{
-			DebugWrite("^b^8SetPluginVariable: ^0" + Name + "^n set to invalid value = " + BadValue + ", " + Message + ". Value forced to = " + NewValue, 1);
+			DebugWrite("^b^8SetPluginVariable: ^0" + Name + "^n set to invalid value = " + BadValue + ", " + Message + ". Value forced to = " + NewValue, 0);
 		}
 		
 		private void Sleep(int Seconds)
@@ -2558,6 +2572,39 @@ namespace PRoConEvents
 	{
 		public int IntVal = 0;
 		public double DoubleVal = 0;
+	}
+	
+	// Always at the end of the file
+	class DescriptionClass
+	{
+		public String HTML = @"
+<h1>THIS PLUGIN IS STILL UNDER DEVELOPMENT!</h1>
+<p>This plugin enables a zombie infection mode type game play</p>
+
+<h2>Description</h2>
+<p>TBD</p>
+
+<h2>Settings</h2>
+<p>TBD</p>
+
+<h2>Commands</h2>
+<p>TBD</p>
+
+<h2>Development</h2>
+<p>TBD</p>
+
+<h2>Download</h2>
+
+<p>Do links work? <a href=https://github.com/m4xxd3v/BF3ZombieMode/downloads>Download from this GitHub page!</a></p>
+
+<h3>Changelog</h3>
+<blockquote><h4>0.1.1 (15-OCT-2012)</h4>
+	- fixes after first round of live testing<br/>
+</blockquote>
+<blockquote><h4>0.1.0 (14-OCT-2012)</h4>
+	- initial version<br/>
+</blockquote>
+";
 	}
 }
 
