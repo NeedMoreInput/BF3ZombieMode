@@ -505,7 +505,7 @@ namespace PRoConEvents
 				if (Count < WarnsBeforeKickForRulesViolations)
 				{
 					// Warning
-					KillPlayer(KillerName, msg);
+					KillPlayerAfterDelay(KillerName, 5);
 				}
 				else if (Count >= WarnsBeforeKickForRulesViolations)
 				{
@@ -558,7 +558,7 @@ namespace PRoConEvents
 					ConsoleException(e.ToString());
 				}
 				
-				if (true) // TBD - workaround for DeathsNeededToBeInfected problem
+				if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
 				{					
 					Infect(KillerName, VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
@@ -1630,6 +1630,10 @@ namespace PRoConEvents
 					ConsoleException("countdown: " + e.ToString());
 				}
 			};
+			
+			String Separator = " ";
+			if (CommandPrefix.Length == 1) Separator = "";
+			TellAll("Type '" + CommandPrefix + Separator + "rules' for instructions on how to play", false); // $$$ - custom message
 
 			Thread t = new Thread(countdown);
 
@@ -1656,7 +1660,7 @@ namespace PRoConEvents
 			{
 				try 
 				{
-					Sleep(1);
+					Sleep(Delay);
 					ExecuteCommand("procon.protected.send", "admin.killPlayer", PlayerName);
 				}
 				catch (Exception e)
@@ -1673,17 +1677,11 @@ namespace PRoConEvents
 		private void KillPlayer(string PlayerName, string Reason)
 		{
 			KillPlayerAfterDelay(PlayerName, 1);
-
-			if (!String.IsNullOrEmpty(Reason))
-				Announce(String.Concat(PlayerName, ": ", Reason));
 		}
 
 		private void KickPlayer(string PlayerName, string Reason)
 		{
 			ExecuteCommand("procon.protected.send", "admin.kickPlayer", PlayerName, Reason);
-
-			if (Reason.Length > 0)
-				Announce(String.Concat(PlayerName, "kicked for: ", Reason));
 		}
 
 		private bool CheckIdle(List<CPlayerInfo> Players)
@@ -2037,7 +2035,7 @@ namespace PRoConEvents
 				TellAll("Bullet damage is now " + BulletDamage + "%", false);
 			}
 			
-			DebugWrite("AdaptDamage: Humans(" + HumanCount + "):Zombies(" + ZombieCount + "), bullet damage set to " + BulletDamage + "% (was " + OldBulletDamage + "%)", 3);
+			if (BulletDamage != OldBulletDamage) DebugWrite("AdaptDamage: Humans(" + HumanCount + "):Zombies(" + ZombieCount + "), bullet damage set to " + BulletDamage + "% (was " + OldBulletDamage + "%)", 3);
 			
 
 		}
