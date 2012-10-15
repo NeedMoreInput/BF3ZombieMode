@@ -57,7 +57,21 @@ BF3 Zombie Mode
 
 <p><b>New Players Join Humans</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, any new players that join the server will be force moved to the human team. If <i>Off</i>, any new players that join the server will be force moved to the zombie team.</p>
 
-<p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back, but on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
+<p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
+
+<h3>Human Damage Percentage</h3>
+
+<p>At the start of a match, when there is only one or a very few zombies, zombies have to be very tough and hard to kill or else they will never get close to a human to infect them. This is implemented with vars.bulletDamage. The values of the following settings specify the vars.bulletDamage depend on the number of zombies that the humans face. The lower the numbers, the harder the zombies are to kill.</p>
+
+<p><b>Against 1 Or 2 Zombies</b>: the default value is <i>5</i>. When humans outnumber zombies 3-to-1 or more (e.g., 18 vs 1).</p>
+
+<p><b>Against A Few Zombies</b>: the default value is <i>10</i>. When humans outnumber zombies between 3-to-1 and 3-to-2 (e.g., 12 vs 7).</p>
+
+<p><b>Against Equal Numbers</b>: the default value is <i>15</i>. When humans and zombies are roughly equal in number, betwee 3-to-2 and 2-to-3 (e.g., 8 vs 11).</p>
+
+<p><b>Against Many Zombies</b>: the default value is <i>30</i>. When zombies outnumber humans between 3-to-2 and 3-to-1 (e.g., 5 vs 14).</p>
+
+<p><b>Against Countless Zombies</b>: the default value is <i>100</i>. When zombies outnumber humans 3-to-1 or more (e.g., 2 vs 17).</p>
 
 <h2>Commands</h2>
 <p>TBD</p>
