@@ -789,6 +789,8 @@ namespace PRoConEvents
 			if (String.IsNullOrEmpty(Command)) Command = "help";
 			
 			DebugWrite("Command without prefix: " + Command, 6);
+
+			String Target = null;
 			
 			switch (Command)
 			{
@@ -802,7 +804,9 @@ namespace PRoConEvents
 						return;
 					}
 					if (MessagePieces.Count != 2) return;
-					Infect("Admin", MessagePieces[1]); // Does TellAll
+					Target = PlayerNameMatch(MessagePieces[1]);
+					TellPlayer("Infecting " + Target, false);
+					Infect("Admin", Target); // Does TellAll
 					break;
 				case "heal":
 					if (ZombieModeEnabled == false || GameState == GState.Idle || GameState == GState.Waiting)
@@ -814,8 +818,9 @@ namespace PRoConEvents
 						return;
 					}
 					if (MessagePieces.Count != 2) return;
-					TellPlayer("Attempting move of " + MessagePieces[1] + " to human team", PlayerName, false);
-					MakeHuman(MessagePieces[1]);
+					Target = PlayerNameMatch(MessagePieces[1]);
+					TellPlayer("Attempting move of " + Target + " to human team", PlayerName, false);
+					MakeHuman(Target);
 					break;
 				case "rematch":
 					if (!IsAdmin(PlayerName))
@@ -881,10 +886,10 @@ namespace PRoConEvents
 						return;
 					if (MessagePieces.Count < 3) return;
 					string WarningMessage = String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray());
-
-					DebugWrite(WarningMessage, 1);
-					Warn(MessagePieces[1], WarningMessage);
-					TellPlayer("Warning sent to " + MessagePieces[1], PlayerName, false);
+					Target = PlayerNameMatch(MessagePieces[1]);
+					DebugWrite("Warning sent by " + PlayerName + " to " + Target + ": " + WarningMessage, 1);
+					Warn(Target, WarningMessage);
+					TellPlayer("Warning sent to " + Target, PlayerName, false);
 					break;
 
 				case "kill":
@@ -895,11 +900,11 @@ namespace PRoConEvents
 					}
 					if (MessagePieces.Count < 2) return;
 					string KillMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
-
-					DebugWrite("Kill message: '" + KillMessage + "'", 1);
-					TellPlayer(KillMessage, MessagePieces[1]);
-					KillPlayerAfterDelay(MessagePieces[1], AnnounceDisplayLength);
-					TellPlayer("Killing " + MessagePieces[1], PlayerName, false);
+					Target = PlayerNameMatch(MessagePieces[1]);
+					DebugWrite(PlayerName + " killing " + Target + " for '" + KillMessage + "'", 1);
+					TellPlayer(KillMessage, Target);
+					KillPlayerAfterDelay(Target, AnnounceDisplayLength);
+					TellPlayer("Attempting to kill " + Target + " in " + AnnounceDisplayLength + " seconds", PlayerName, false);
 					break;
 
 				case "kick":
@@ -910,9 +915,10 @@ namespace PRoConEvents
 					}
 					if (MessagePieces.Count < 2) return;
 					string KickMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
-
-					KickPlayer(MessagePieces[1], KickMessage);
-					TellPlayer("Kicking " + MessagePieces[1], PlayerName, false);
+					Target = PlayerNameMatch(MessagePieces[1]);
+					DebugWrite(PlayerName + " kicking " + Target + " for '" + KickMessage + "'", 1);
+					KickPlayer(Target, KickMessage);
+					TellPlayer("Kicking " + Target, PlayerName, false);
 					break;
 				case "status":
 					TellStatus(PlayerName);
@@ -2346,9 +2352,16 @@ namespace PRoConEvents
 
 			foreach (CPlayerInfo Player in PlayerList)
 			{
-				if (Regex.Match(Player.SoldierName, Name, RegexOptions.IgnoreCase).Success)
+				try
 				{
-					return Player.SoldierName;
+					if (Regex.Match(Player.SoldierName, Name, RegexOptions.IgnoreCase).Success)
+					{
+						return Player.SoldierName;
+					}
+				}
+				catch (Exception e)
+				{
+					return null;
 				}
 			}
 
