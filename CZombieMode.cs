@@ -63,6 +63,8 @@ namespace PRoConEvents
 		private int WarnsBeforeKickForRulesViolations = 1;
 		
 		private bool NewPlayersJoinHumans = true;
+		
+		private int VotesNeededToKick = 3;
 
 		#endregion
 
@@ -792,6 +794,11 @@ namespace PRoConEvents
 					}
 					if (MessagePieces.Count != 2) return;
 					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
 					TellPlayer("Infecting " + Target, PlayerName, false);
 					Infect("Admin", Target); // Does TellAll
 					break;
@@ -806,6 +813,11 @@ namespace PRoConEvents
 					}
 					if (MessagePieces.Count != 2) return;
 					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
 					TellPlayer("Attempting move of " + Target + " to human team", PlayerName, false);
 					MakeHuman(Target);
 					break;
@@ -874,6 +886,11 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 3) return;
 					string WarningMessage = String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray());
 					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
 					DebugWrite("Warning sent by " + PlayerName + " to " + Target + ": " + WarningMessage, 1);
 					Warn(Target, WarningMessage);
 					TellPlayer("Warning sent to " + Target, PlayerName, false);
@@ -888,6 +905,11 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 2) return;
 					string KillMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
 					DebugWrite(PlayerName + " killing " + Target + " for '" + KillMessage + "'", 1);
 					TellPlayer(KillMessage, Target);
 					KillPlayerAfterDelay(Target, AnnounceDisplayLength);
@@ -903,9 +925,27 @@ namespace PRoConEvents
 					if (MessagePieces.Count < 2) return;
 					string KickMessage = (MessagePieces.Count >= 3) ? String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray()) : "";
 					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player named '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
 					DebugWrite(PlayerName + " kicking " + Target + " for '" + KickMessage + "'", 1);
 					KickPlayer(Target, KickMessage);
 					TellPlayer("Kicking " + Target, PlayerName, false);
+					break;
+				case "votekick":
+					if (ZombieModeEnabled == false || GameState == GState.Idle)
+						return;
+					if (MessagePieces.Count < 2) return;
+					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
+					DebugWrite(PlayerName + " voted to kick " + Target, 3);
+					VoteKick(PlayerName, Target);
 					break;
 				case "status":
 					TellStatus(PlayerName);
@@ -1375,6 +1415,8 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Warns Before Kick For Rules Violations", WarnsBeforeKickForRulesViolations.GetType(), WarnsBeforeKickForRulesViolations));
 
+			lstReturn.Add(new CPluginVariable("Admin Settings|Votes Needed To Kick", VotesNeededToKick.GetType(), VotesNeededToKick));
+			
 			lstReturn.Add(new CPluginVariable("Admin Settings|Debug Level", DebugLevel.GetType(), DebugLevel));
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), AdminUsers.ToArray()));
@@ -2063,6 +2105,27 @@ namespace PRoConEvents
 				}
 			}
 		}
+		
+		private void VoteKick(string Voter, string Suspect)
+		{
+			int Votes = PlayerState.GetVotes(Suspect);
+			Votes = Votes + 1;
+			PlayerState.SetVotes(Suspect, Votes);
+			
+			DebugWrite("VoteKick: " + Votes + " of " + VotesNeededToKick + " have been cast against " + Suspect, 2);
+			
+			if (Votes >= VotesNeededToKick)
+			{
+				TellPlayer("Your vote to kick " + Suspect + " was the last one needed. Kicking now!", Voter, false);
+				TellAll(Suspect + " has been kicked by vote!");
+				KickPlayer(Suspect, "Players voted to kick you!");
+				PlayerState.SetVotes(Suspect, 0);
+			}
+			else
+			{
+				TellPlayer("Your vote was " + Votes + " of " + VotesNeededToKick + " needed to kick " + Suspect, Voter, false);
+			}
+		}
 
 		#endregion
 
@@ -2610,6 +2673,8 @@ namespace PRoConEvents
 		public DateTime LastSpawnTime = DateTime.Now;
 		
 		public bool IsSpawned = false;
+		
+		public int VotesToKick = 0;
 	}
 
 	class ZombieModePlayerState
@@ -2677,7 +2742,6 @@ namespace PRoConEvents
 			return AllPlayerStates[soldierName].IsSpawned;			
 		}
 
-
 		public double GetLastSpawnTime(String soldierName)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
@@ -2686,9 +2750,19 @@ namespace PRoConEvents
 			TimeSpan time = DateTime.Now - last;
 			return(time.TotalSeconds);
 		}
-		
-		
 
+		public int GetVotes(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
+			return AllPlayerStates[soldierName].VotesToKick;						
+		}
+		
+		public void SetVotes(String soldierName, int Votes)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			AllPlayerStates[soldierName].VotesToKick = Votes;			
+		}
+		
 		public void ResetPerMatch()
 		{
 			foreach (String key in AllPlayerStates.Keys)
