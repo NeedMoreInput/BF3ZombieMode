@@ -16,7 +16,7 @@ BF3 Zombie Mode
 
 <p>The plugin is driven by players spawning. Until a minimum number of individual players spawns, the match won't start. See <b>Minimum Zombies</b> and <b>Minimum Humans</b> below.</p>
 
-<p>Recommended server settings are here: <a href=http://www.phogue.net/forumvb/forum.php>TBD</a></p>
+<p>Recommended server settings are here: <a href=https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings>https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings</a></p>
 
 <h2>Settings</h2>
 <p>There are a large number of configurable setttings, divided into sections.</p>
