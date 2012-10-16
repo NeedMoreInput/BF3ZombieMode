@@ -95,9 +95,9 @@ BF3 Zombie Mode
 <p><b>!zombie rules</b>: Scrolls all of the Zombie Mode rules to the player.</p>
 
 <p><b>!zombie status</b>: Shows the status of the match to the player, for example, if the mode is waiting for more players to join, or if it is Idle (waiting for a player to spawn so that it can reset), counting down to the next match, etc. If a match is in progress (Playing), it also shows some statistics for the match, for example:<pre>
-HUMANS: N=4,K=23
+HUMANS: N=4,K=23,G=30
 ZOMBIES: N=16,D=100</pre><br/>
-Where <b>N</b> is the number of players on that team, <b>K</b> is the number of zombies the humans have killed, and <b>D</b> is the current bullet damage.</p>
+Where <b>N</b> is the number of players on that team, <b>K</b> is the number of zombies the humans have killed, <b>G</b> is the number of zombies the humans need to kill to win, and <b>D</b> is the current bullet damage.</p>
 
 <p><b>!zombie warn</b> <i>name</i> <i>reason</i>: Sends a warning yell to the player with the specified <i>name</i>. The <i>reason</i> is one or more words. For example:
 <pre>!zombie warn PapaCharlie9 Quit glitching u noob!</pre><br/>
@@ -131,5 +131,4 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <h2>Download</h2>
 
 <p>Do links work? <a href=https://github.com/m4xxd3v/BF3ZombieMode/downloads>Download from this GitHub page!</a></p>
-
 
