@@ -554,8 +554,15 @@ namespace PRoConEvents
 				KillTracker.ZombieKilled(KillerName, VictimName);
 
 				DebugWrite(String.Concat("Human ", KillerName, " just killed zombie ", VictimName, " with ", WeaponName), 3);
+				
+				int TotalCount = 0;
+				
+				lock(TeamHuman)
+				{
+					TotalCount = TeamHuman.Count + TeamZombie.Count;
+				}
 								
-				TellAll("*** Humans killed " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies needed to win!"); // $$$ - custom message
+				TellAll("*** Humans killed " + KillTracker.GetZombiesKilled() + " of " + GetKillsNeeded(TotalCount) + " zombies needed to win!"); // $$$ - custom message
 
 				// Check for self-infecting kill
 				if (Regex.Match(info.DamageType, @"(?:Knife|Melee|Defib|Repair)", RegexOptions.IgnoreCase).Success)
@@ -615,7 +622,7 @@ namespace PRoConEvents
 
 			lock (TeamHuman)
 			{
-				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + TeamZombie.Count + " zombies with " + KillTracker.GetZombiesKilled() + " of " + ZombiesKilledToSurvive + " zombies killed", 2);
+				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + TeamZombie.Count + " zombies with " + KillTracker.GetZombiesKilled() + " of " + GetKillsNeeded(TeamZombie.Count + TeamHuman.Count) + " zombies killed", 2);
 			}
 			
 			CheckVictoryConditions();
@@ -783,7 +790,7 @@ namespace PRoConEvents
 					}
 					if (MessagePieces.Count != 2) return;
 					Target = PlayerNameMatch(MessagePieces[1]);
-					TellPlayer("Infecting " + Target, false);
+					TellPlayer("Infecting " + Target, PlayerName, false);
 					Infect("Admin", Target); // Does TellAll
 					break;
 				case "heal":
@@ -1378,8 +1385,10 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Zombie Kill Limit Enabled", typeof(enumBoolOnOff), ZombieKillLimitEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 
+			/* to be removed
 			if (ZombieKillLimitEnabled)
 				lstReturn.Add(new CPluginVariable("Game Settings|Zombies Killed To Survive", ZombiesKilledToSurvive.GetType(), ZombiesKilledToSurvive));
+			*/
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Deaths Needed To Be Infected", DeathsNeededToBeInfected.GetType(), DeathsNeededToBeInfected));
 			
@@ -1389,6 +1398,24 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Rematch Enabled", typeof(enumBoolOnOff), RematchEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			
+			if (ZombieKillLimitEnabled)
+			{
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 8 Or Less Players", KillsIf8OrLessPlayers.GetType(), KillsIf8OrLessPlayers));
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 12 To 9 Players", KillsIf12To9Players.GetType(), KillsIf12To9Players));
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 16 To 13 Players", KillsIf16To13Players.GetType(), KillsIf16To13Players));
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 20 To 17 Players", KillsIf20To17Players.GetType(), KillsIf20To17Players));
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 24 To 21 Players", KillsIf24To21Players.GetType(), KillsIf24To21Players));
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 28 To 25 Players", KillsIf28To25Players.GetType(), KillsIf28To25Players));
+
+				lstReturn.Add(new CPluginVariable("Goal For Humans|Kills If 32 To 29 Players", KillsIf32To29Players.GetType(), KillsIf32To29Players));
+			}
+		
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against 1 Or 2 Zombies", Against1Or2Zombies.GetType(), Against1Or2Zombies));
 
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against A Few Zombies", AgainstAFewZombies.GetType(), AgainstAFewZombies));
@@ -1548,11 +1575,13 @@ namespace PRoConEvents
 						DebugValue("Deaths Needed To Be Infected", DeathsNeededToBeInfected.ToString(), "must be between 1 and 10, inclusive", "1");
 						DeathsNeededToBeInfected = 1; // default
 					}
+					/* To be removed
 					if (ZombiesKilledToSurvive < MaxPlayers)
 					{
 						DebugValue("Zombies Killed To Survive", ZombiesKilledToSurvive.ToString(), "must be more than " + MaxPlayers, "50");
 						ZombiesKilledToSurvive = 50; // default
 					}
+					*/
 					if (HumanMaxIdleSeconds < 0 )
 					{
 						DebugValue("Human Max Idle Seconds", HumanMaxIdleSeconds.ToString(), "must not be negative", "120");
@@ -1562,6 +1591,11 @@ namespace PRoConEvents
 					{
 						DebugValue("Max Idle Seconds", MaxIdleSeconds.ToString(), "must not be negative", "600");
 						MaxIdleSeconds = 600; // default
+					}
+					if (KillsIf8OrLessPlayers < 6)
+					{
+						DebugValue("Kills If 8 Or Less Players", KillsIf8OrLessPlayers.ToString(), "must be 6 or more", "6");
+						KillsIf8OrLessPlayers = 6; // default
 					}
 				}
 			};
@@ -1938,22 +1972,11 @@ namespace PRoConEvents
 			
 			Thread.Sleep(2);
 		}
-
-		private void CheckVictoryConditions()
+		
+		private int GetKillsNeeded(int TotalCount)
 		{
-			// Victory conditions
-			
 			int Needed = 0;
-			int TotalCount = 0;
-			int HCount = 0;
-			int ZCount = 0;
-			lock(TeamHuman)
-			{
-				HCount = TeamHuman.Count;
-				ZCount = TeamZombie.Count;
-				TotalCount = HCount + ZCount;
-			}
-
+			
 			if (TotalCount <= 8)
 			{
 				Needed = KillsIf8OrLessPlayers;
@@ -1985,8 +2008,28 @@ namespace PRoConEvents
 			else
 			{
 				ConsoleError("CheckVictoryConditions: bad TotalCount");
-				return;
+				return 0;
 			}
+			
+			return Needed;
+		}
+
+		private void CheckVictoryConditions()
+		{
+			// Victory conditions
+			
+			int Needed = 0;
+			int TotalCount = 0;
+			int HCount = 0;
+			int ZCount = 0;
+			lock(TeamHuman)
+			{
+				HCount = TeamHuman.Count;
+				ZCount = TeamZombie.Count;
+				TotalCount = HCount + ZCount;
+			}
+
+			Needed = GetKillsNeeded(TotalCount);
 
 			// All zombies left the server?
 			if (ZCount == 0 && HCount > 0)
@@ -2210,7 +2253,15 @@ namespace PRoConEvents
 			Rules.Add("Zombies are hard to kill");
 			Rules.Add("Humans use guns only, no explosives!");
 			Rules.Add("Zombies win by infecting all humans");
-			if (ZombieKillLimitEnabled) Rules.Add("Humans win by killing " + ZombiesKilledToSurvive + " zombies");
+			if (ZombieKillLimitEnabled) 
+			{
+				int TotalCount = 0;
+				lock (TeamHuman)
+				{
+					TotalCount = TeamHuman.Count + TeamZombie.Count;
+				}
+				Rules.Add("Humans win by killing " + GetKillsNeeded(TotalCount) + " zombies");
+			}
 			Rules.Add("When a zombie kills you, you are infected and moved to the zombie team!");
 			
 			String RuleNum = null;
@@ -2666,7 +2717,8 @@ namespace PRoConEvents
 
 	class DescriptionClass
 	{
-		public String HTML = "
+		public String HTML = "x";
+/*
 <h1>THIS PLUGIN IS STILL UNDER DEVELOPMENT!</h1>
 <h2>Description</h2>
 
@@ -2810,6 +2862,7 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 	- initial version<br/>
 </blockquote>
 ";
+*/
 	}
 }
 
