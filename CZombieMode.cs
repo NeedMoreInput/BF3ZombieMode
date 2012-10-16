@@ -971,11 +971,11 @@ namespace PRoConEvents
 					TellPlayer("Try suiciding and respawning", PlayerName);
 					if (!IsAdmin(PlayerName))
 					{
-						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn, votekick", PlayerName);
 					}
 					else
 					{
-						TellPlayer("Type !zombie <command>\nCommands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, idle, warn", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, idle, warn, votekick", PlayerName);
 					}
 					break;
 			}
