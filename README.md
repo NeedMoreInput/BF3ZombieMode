@@ -3,6 +3,7 @@ BF3 Zombie Mode
 
 ##STILL IN DEVELOPMENT, DO NOT USE YET
 
+<h1>THIS PLUGIN IS STILL UNDER DEVELOPMENT!</h1>
 <h2>Description</h2>
 
 <p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the _Infected_ or _Zombie_ variant play.</p>
@@ -93,17 +94,13 @@ BF3 Zombie Mode
 
 <p><b>!zombie rules</b>: Scrolls all of the Zombie Mode rules to the player.</p>
 
-<p><b>!zombie status</b>: Shows the status of the match to the player, for example, if the mode is waiting for more players to join, or if it is Idle (waiting for a player to spawn so that it can reset), counting down to the next match, etc. If a match is in progress (Playing), it also shows some statistics for the match, for example:
-<pre>
+<p><b>!zombie status</b>: Shows the status of the match to the player, for example, if the mode is waiting for more players to join, or if it is Idle (waiting for a player to spawn so that it can reset), counting down to the next match, etc. If a match is in progress (Playing), it also shows some statistics for the match, for example:<pre>
 HUMANS: N=4,K=23
-ZOMBIES: N=16,D=100
-</pre>
+ZOMBIES: N=16,D=100</pre><br/>
 Where <b>N</b> is the number of players on that team, <b>K</b> is the number of zombies the humans have killed, and <b>D</b> is the current bullet damage.</p>
 
 <p><b>!zombie warn</b> <i>name</i> <i>reason</i>: Sends a warning yell to the player with the specified <i>name</i>. The <i>reason</i> is one or more words. For example:
-<pre>
-!zombie warn PapaCharlie9 Quit glitching u noob!
-</pre>
+<pre>!zombie warn PapaCharlie9 Quit glitching u noob!</pre><br/>
 will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 
 <h3>Commands for Admins only</h3>
@@ -115,9 +112,7 @@ will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 <p><b>!zombie infect</b> <i>name</i>: Kills the player with the specified <i>name</i> and if they are on the human team, force moves them to the zombie team. Useful for dealing with human glitchers or idlers.</p>
 
 <p><b>!zombie kick</b> <i>name</i> <i>reason</i>: Kicks the player with the specified <i>name</i>. The <i>reason</i> is one or more words. For example:
-<pre>
-!zombie kick PapaCharlie9 Too much glitching!
-</pre>
+<pre>!zombie kick PapaCharlie9 Too much glitching!</pre><br/>
 will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.</p>
 
 <p><b>!zombie kill</b> <i>name</i>: Kills the player with the specified <i>name</i>. Useful to force a glitcher to respawn or a player ignoring warnings to pay more attention.</p>
@@ -136,7 +131,5 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <h2>Download</h2>
 
 <p>Do links work? <a href=https://github.com/m4xxd3v/BF3ZombieMode/downloads>Download from this GitHub page!</a></p>
-
-<h3>Changelog</h3>
 
 
