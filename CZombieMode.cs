@@ -476,6 +476,7 @@ namespace PRoConEvents
 				PlayerState.UpdateSpawnTime(info.Killer.SoldierName);
 				PlayerState.UpdateSpawnTime(info.Victim.SoldierName);
 				PlayerState.SetSpawned(info.Victim.SoldierName, false);
+				// Since we can't log vars values in plugin.log, at least log to console.log
 				if (DebugLevel > 3) ExecuteCommand("procon.protected.send", "vars.bulletDamage");
 			}
 
@@ -486,13 +487,6 @@ namespace PRoConEvents
 			Match WeaponMatch = Regex.Match(info.DamageType, @"Weapons/[^/]*/([^/]*)", RegexOptions.IgnoreCase);
 			String WeaponName = (WeaponMatch.Success) ? WeaponMatch.Groups[1].Value : info.DamageType;
 
-			DebugWrite("OnPlayerKilled: " + info.Killer.SoldierName + " killed " + info.Victim.SoldierName + " with " + WeaponName, 4);
-			
-			
-			// Killed by admin?
-			if (info.DamageType == "Death")
-				return;
-				
 			const String INDIRECT_KILL = "INDIRECT KILL";
 
 			String KillerName = (String.IsNullOrEmpty(info.Killer.SoldierName)) ?  INDIRECT_KILL : info.Killer.SoldierName;
@@ -509,6 +503,13 @@ namespace PRoConEvents
 			
 			int RemainingHumans = 0;
 			
+
+			// Killed by admin?
+			if (info.DamageType == "Death")
+				return;
+				
+			DebugWrite("OnPlayerKilled: " + KillerName + " killed " + VictimName + " with " + WeaponName, 4);
+
 			lock (TeamHuman)
 			{
 				RemainingHumans = TeamHuman.Count - 1;
@@ -523,16 +524,33 @@ namespace PRoConEvents
 				InfectMessage = "*** No humans left!"; // $$$ - custom message
 			}
 
-			if (ValidateWeapon(DamageType, KillerTeam) == false)
-			{
-				DebugWrite(String.Concat(KillerName, " invalid kill with ", WeaponName, "!"), 2);
+			String Notice = DamageType + " results in non-scoring accidental death, respawn and try again";  // $$$ - custom message
 
-				if (KillerName == INDIRECT_KILL)
-					return;
+			// Weapon validation
+			
+			if (KillerName == INDIRECT_KILL)
+			{
+				TellPlayer(VictimName + ": " + Notice, VictimName, false);
+				return;
+			}
+			else if (Regex.Match(DamageType, @"(?:DamageArea|RoadKill|SoldierCollision)").Success)
+			{
+				DebugWrite("OnPlayerKilled: " + DamageType + " is a non-scoring kill of both parties", 3);
 				
+				TellPlayer(Notice, KillerName, false);
+				
+				if (KillerName != VictimName) TellPlayer(Notice, VictimName, false);
+				
+				KillPlayerAfterDelay(KillerName, 5);
+				return;
+			}
+			else if (ValidateWeapon(DamageType, KillerTeam) == false)
+			{
 				String msg = "ZOMBIE RULE VIOLATION! " + WeaponName + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
 				
-				TellAll(KillerName + " => " + msg);
+				DebugWrite(msg + " " + KillerName + " killed " + VictimName, 2);
+				
+				TellAll(KillerName + " -> " + msg);
 				
 				int Count = KillTracker.GetViolations(KillerName);
 				
@@ -541,7 +559,7 @@ namespace PRoConEvents
 					// Warning
 					KillPlayerAfterDelay(KillerName, 5);
 				}
-				else if (Count >= WarnsBeforeKickForRulesViolations)
+				else
 				{
 					KickPlayer(KillerName, msg);
 				}
@@ -551,9 +569,23 @@ namespace PRoConEvents
 				return;
 			}
 
+			// Scoring logic
 
-
-			if (KillerTeam == HUMAN_TEAM && VictimTeam == ZOMBIE_TEAM)
+			if (KillerName == VictimName)
+			{
+				if (InfectSuicides)
+				{
+					DebugWrite("Suicide infected: " + VictimName, 2);
+					Infect("Suicide ", VictimName);
+					TellAll(InfectMessage, false); // do not overwrite Infect yell
+				}
+				else
+				{
+					TellPlayer(VictimName + ": Suicide with " + Notice, VictimName, false);
+					return;
+				}
+			}
+			else if (KillerTeam == HUMAN_TEAM && VictimTeam == ZOMBIE_TEAM)
 			{
 				KillTracker.ZombieKilled(KillerName, VictimName);
 
@@ -602,24 +634,6 @@ namespace PRoConEvents
 				if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
 				{					
 					Infect(KillerName, VictimName);
-					TellAll(InfectMessage, false); // do not overwrite Infect yell
-				}
-			}
-			else if (KillerName == VictimName)
-			{
-				if (InfectSuicides)
-				{
-					DebugWrite("Suicide infected: " + VictimName, 2);
-					Infect("Suicide ", VictimName);
-					TellAll(InfectMessage, false); // do not overwrite Infect yell
-				}
-			}
-			else if (KillerName == INDIRECT_KILL)
-			{
-				if (InfectSuicides)
-				{
-					DebugWrite("Bad luck infect: " + VictimName, 2);
-					Infect("Bad luck ", VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
 				}
 			}
@@ -2928,10 +2942,7 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p>Do links work? <a href=https://github.com/m4xxd3v/BF3ZombieMode/downloads>Download from this GitHub page!</a></p>
 
 <h3>Changelog</h3>
-<blockquote><h4>0.1.1 (15-OCT-2012)</h4>
-	- fixes after first round of live testing<br/>
-</blockquote>
-<blockquote><h4>0.1.0 (14-OCT-2012)</h4>
+<blockquote><h4>1.0.0 (14-OCT-2012)</h4>
 	- initial version<br/>
 </blockquote>
 ";
