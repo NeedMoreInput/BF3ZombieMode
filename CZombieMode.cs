@@ -544,7 +544,7 @@ namespace PRoConEvents
 				KillPlayerAfterDelay(KillerName, 5);
 				return;
 			}
-			else if (ValidateWeapon(DamageType, KillerTeam) == false)
+			else if (KillerName != VictimName && ValidateWeapon(DamageType, KillerTeam) == false)
 			{
 				String msg = "ZOMBIE RULE VIOLATION! " + WeaponName + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
 				
@@ -673,11 +673,11 @@ namespace PRoConEvents
 				// Team tracking
 				if (Player.TeamID == 1) {
 					HumanCensus.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 5);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 6);
 				}
 				if (Player.TeamID == 2) {
 					ZombieCensus.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 5);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 6);
 				}					
 			}
 			
@@ -685,7 +685,7 @@ namespace PRoConEvents
 			
 			lock (TeamHuman)
 			{
-				if (Players.Count > 0) DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 5);
+				if (Players.Count > 0) DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 6);
 				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
 				
@@ -2122,9 +2122,15 @@ namespace PRoConEvents
 		
 		private void VoteKick(string Voter, string Suspect)
 		{
+			bool AlreadyVoted = PlayerState.AddVote(Suspect, Voter);
+
+			if (AlreadyVoted)
+			{
+				TellPlayer("You already voted to kick " + Suspect, Voter, false);
+				return;
+			}
+
 			int Votes = PlayerState.GetVotes(Suspect);
-			Votes = Votes + 1;
-			PlayerState.SetVotes(Suspect, Votes);
 			
 			DebugWrite("VoteKick: " + Votes + " of " + VotesNeededToKick + " have been cast against " + Suspect, 2);
 			
@@ -2133,7 +2139,7 @@ namespace PRoConEvents
 				TellPlayer("Your vote to kick " + Suspect + " was the last one needed. Kicking now!", Voter, false);
 				TellAll(Suspect + " has been kicked by vote!");
 				KickPlayer(Suspect, "Players voted to kick you!");
-				PlayerState.SetVotes(Suspect, 0);
+				PlayerState.ClearVotes(Suspect);
 			}
 			else
 			{
@@ -2176,6 +2182,8 @@ namespace PRoConEvents
 
 		private bool ValidateWeapon(string Weapon, string TEAM_CONST)
 		{
+			if (Regex.Match(Weapon, @"(?:Suicide|Death|SoldierCollision|RoadKill|DamageArea)").Success)
+				return true;
 
 			if (
 				(TEAM_CONST == HUMAN_TEAM && HumanWeaponsEnabled.IndexOf(Weapon) >= 0) || 
@@ -2314,12 +2322,12 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds) return;
 			if (AlsoYell) ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "player", SoldierName);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "player", SoldierName);
+			LogChat(Message, SoldierName);
 		}
 				
 		private void TellPlayer(string Message, string SoldierName)
 		{
 			TellPlayer(Message, SoldierName, true);
-			LogChat(Message, SoldierName);
 		}
 
 		private void TellRules(string SoldierName)
@@ -2688,7 +2696,7 @@ namespace PRoConEvents
 		
 		public bool IsSpawned = false;
 		
-		public int VotesToKick = 0;
+		public List<String> VotesToKick = new List<String>();
 	}
 
 	class ZombieModePlayerState
@@ -2768,15 +2776,23 @@ namespace PRoConEvents
 		public int GetVotes(String soldierName)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
-			return AllPlayerStates[soldierName].VotesToKick;						
+			return AllPlayerStates[soldierName].VotesToKick.Count;						
 		}
 		
-		public void SetVotes(String soldierName, int Votes)
+		public bool AddVote(String soldierName, String voter)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
-			AllPlayerStates[soldierName].VotesToKick = Votes;			
+			if (AllPlayerStates[soldierName].VotesToKick.Contains(voter)) return true;
+			AllPlayerStates[soldierName].VotesToKick.Add(voter);
+			return false;
 		}
-		
+
+		public void ClearVotes(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return;
+			AllPlayerStates[soldierName].VotesToKick.Clear();						
+		}
+
 		public void ResetPerMatch()
 		{
 			foreach (String key in AllPlayerStates.Keys)
@@ -2791,7 +2807,7 @@ namespace PRoConEvents
 			
 			foreach (String key in AllPlayerStates.Keys)
 			{
-				SetSpawnCount(key, 0);
+				ClearVotes(key);
 			}
 		}
 
@@ -2825,7 +2841,7 @@ namespace PRoConEvents
 
 <p>The plugin is driven by players spawning. Until a minimum number of individual players spawns, the match won't start. See <b>Minimum Zombies</b> and <b>Minimum Humans</b> below.</p>
 
-<p>Recommended server settings are here: <a href=http://www.phogue.net/forumvb/forum.php>TBD</a></p>
+<p>Recommended server settings are here: <a href=https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings>https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings</a></p>
 
 <h2>Settings</h2>
 <p>There are a large number of configurable setttings, divided into sections.</p>
@@ -2845,6 +2861,8 @@ namespace PRoConEvents
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
+<p><b>Votes Needed To Kick</b>: Number of votes needed to kick a player with the <b>!zombie votekick</b> command. The default value is <i>3</i>.</p>
+
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
 
 <p><b>Admin Users</b>: A table of soldier names that will be permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
@@ -2857,9 +2875,7 @@ namespace PRoConEvents
 
 <p><b>Minimum Humans</b>: The number of players that will start a match as humans. The default value is <i>3</i>. Note: the sum of <b>Minimum Zombies</b> and <b>Minimum Humans</b> (default: 4) is the minimum number of players needed to start a match. Until that minimum number spawns into the round, the Zombie Mode will wait and normal Team Deathmatch rules will apply.</p>
 
-<p><b>Zombie Kill Limit Enabled</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, Humans must kill the number of zombies specified in <b>Zombies Killed To Survive</b> in order to win. If <i>Off</i>, the last human left standing is the winner.</p>
-
-<p><b>Zombies Killed To Survive</b>: The number of zombies that the human team must kill in order to win the match. The default value is <i>50</i>.</p>
+<p><b>Zombie Kill Limit Enabled</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, Humans must kill the number of zombies specified in <b>Goal For Humans</b> in order to win. If <i>Off</i>, the last human left standing is the winner.</p>
 
 <p><b>Deaths Needed To Be Infected</b>: The number of times a human must be killed by a zombie before the human becomes infected and is forced to switch to the zombie team. The default value is <i>1</i>.</p>
 
@@ -2868,6 +2884,24 @@ namespace PRoConEvents
 <p><b>New Players Join Humans</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, any new players that join the server will be force moved to the human team. If <i>Off</i>, any new players that join the server will be force moved to the zombie team.</p>
 
 <p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
+
+<h3>Goal For Humans</h3>
+
+<p>If <b>Zombie Kill Limit Enabled</b> is <i>On</i>, humans musts kill the specified number of zombies in order to win. The kill goal is adaptive to the number of players in the match, specified in intervals of four, as follows:</p>
+
+<p><b>Kills If 8 Or Less Players</b>: the default value is <i>20</i>.</p>
+
+<p><b>Kills If 12 To 9 Players</b>: the default value is <i>25</i>.</p>
+
+<p><b>Kills If 16 To 13 Players</b>: the default value is <i>30</i>.</p>
+
+<p><b>Kills If 20 To 17 Players</b>: the default value is <i>40</i>.</p>
+
+<p><b>Kills If 24 To 21 Players</b>: the default value is <i>50</i>.</p>
+
+<p><b>Kills If 28 To 25 Players</b>: the default value is <i>60</i>.</p>
+
+<p><b>Kills If 32 To 29 Players</b>: the default value is <i>70</i>.</p>
 
 <h3>Human Damage Percentage</h3>
 
@@ -2912,6 +2946,8 @@ Where <b>N</b> is the number of players on that team, <b>K</b> is the number of 
 <pre>!zombie warn PapaCharlie9 Quit glitching u noob!</pre><br/>
 will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 
+<p><b>!zombie votekick</b> <i>name</i>: Adds a vote to kick the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is kicked. Votes are cleared after the player is kicked.</p>
+
 <h3>Commands for Admins only</h3>
 
 <p><b>!zombie force</b>: Force a match to start, even if there are not enough players. Useful if players aren't spawning fast enough to get a match started or if the plugin gets into a confused state (please report a bug so we can fix it).</p>
@@ -2933,13 +2969,6 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie rematch</b> <i>on</i>/<i>off</i>: Changes the <b>Rematch Enabled</b> setting</p>
 
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
-
-<h2>Hints & Tips</h2>
-<p>TBD</p>
-
-<h2>Download</h2>
-
-<p>Do links work? <a href=https://github.com/m4xxd3v/BF3ZombieMode/downloads>Download from this GitHub page!</a></p>
 
 <h3>Changelog</h3>
 <blockquote><h4>1.0.0 (14-OCT-2012)</h4>
