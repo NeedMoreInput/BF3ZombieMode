@@ -544,7 +544,7 @@ namespace PRoConEvents
 				KillPlayerAfterDelay(KillerName, 5);
 				return;
 			}
-			else if (ValidateWeapon(DamageType, KillerTeam) == false)
+			else if (KillerName != VictimName && ValidateWeapon(DamageType, KillerTeam) == false)
 			{
 				String msg = "ZOMBIE RULE VIOLATION! " + WeaponName + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
 				
@@ -673,11 +673,11 @@ namespace PRoConEvents
 				// Team tracking
 				if (Player.TeamID == 1) {
 					HumanCensus.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 5);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 6);
 				}
 				if (Player.TeamID == 2) {
 					ZombieCensus.Add(Player.SoldierName);
-					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 5);
+					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 6);
 				}					
 			}
 			
@@ -685,7 +685,7 @@ namespace PRoConEvents
 			
 			lock (TeamHuman)
 			{
-				if (Players.Count > 0) DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 5);
+				if (Players.Count > 0) DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 6);
 				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
 				
@@ -2182,6 +2182,8 @@ namespace PRoConEvents
 
 		private bool ValidateWeapon(string Weapon, string TEAM_CONST)
 		{
+			if (Regex.Match(Weapon, @"(?:Suicide|Death|SoldierCollision|RoadKill|DamageArea)").Success)
+				return true;
 
 			if (
 				(TEAM_CONST == HUMAN_TEAM && HumanWeaponsEnabled.IndexOf(Weapon) >= 0) || 
@@ -2320,12 +2322,12 @@ namespace PRoConEvents
 			if (GameState == GState.BetweenRounds) return;
 			if (AlsoYell) ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "player", SoldierName);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "player", SoldierName);
+			LogChat(Message, SoldierName);
 		}
 				
 		private void TellPlayer(string Message, string SoldierName)
 		{
 			TellPlayer(Message, SoldierName, true);
-			LogChat(Message, SoldierName);
 		}
 
 		private void TellRules(string SoldierName)
@@ -2694,7 +2696,7 @@ namespace PRoConEvents
 		
 		public bool IsSpawned = false;
 		
-		public HashSet<String> VotesToKick = new HashSet<String>();
+		public List<String> VotesToKick = new List<String>();
 	}
 
 	class ZombieModePlayerState
@@ -2780,7 +2782,9 @@ namespace PRoConEvents
 		public bool AddVote(String soldierName, String voter)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
-			return (!(AllPlayerStates[soldierName].VotesToKick.Add(voter)));			
+			if (AllPlayerStates[soldierName].VotesToKick.Contains(voter)) return true;
+			AllPlayerStates[soldierName].VotesToKick.Add(voter);
+			return false;
 		}
 
 		public void ClearVotes(String soldierName)
