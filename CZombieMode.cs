@@ -762,7 +762,7 @@ namespace PRoConEvents
 			
 			if (PlayerName == "Server")
 			{
-				DebugWrite("HandleChat: from Server? " + CleanMessage, 7);
+				DebugWrite("HandleChat: from Server? " + CleanMessage, 6);
 				return;
 			}
 
@@ -1007,7 +1007,9 @@ namespace PRoConEvents
 					}
 					else
 					{
-						TellPlayer("Type !zombie <command>\nCommands: infect, heal, rematch, restart, next, force, mode, kill, kick, rules, help, status, idle, warn, votekick", PlayerName);
+						TellPlayer("Type !zombie <command>\nTo force a match to start, type: !zombie force", PlayerName, false);
+						TellPlayer("Admin commands: infect, heal, rematch, restart, next, force, mode, kill, kick", PlayerName, false);
+						TellPlayer("Player commands: rules, help, status, idle, warn, votekick", PlayerName, false);
 					}
 					break;
 			}
@@ -1269,7 +1271,19 @@ namespace PRoConEvents
 			{
 				lock (TeamHuman)
 				{
-					if (!TeamHuman.Contains(soldierName)) ConsoleError("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
+					if (!TeamHuman.Contains(soldierName)) 
+					{
+						ConsoleError("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
+					
+						if (GameState == GState.Playing)
+						{
+							DebugWrite("ZOMBIE MODE STOPPED - teams are not right!", 1);
+							TellAll("ZOMBIE MODE STOPPED - teams are not right!");
+							TellAll("Respawn or run next map round/level to fix it", false);
+							Reset();
+							return;
+						}
+					}
 				}
 				TellPlayer("You are a human! Shoot zombies, don't use explosives, don't let zombies get near you!", soldierName); // $$$ - custom message
 			}
@@ -1409,7 +1423,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.3";
+			return "0.1.4";
 		}
 
 		public string GetPluginAuthor()
