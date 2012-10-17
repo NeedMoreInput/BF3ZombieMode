@@ -759,6 +759,12 @@ namespace PRoConEvents
 			List<string> MessagePieces = new List<string>(CleanMessage.Split(' '));
 
 			String Command = MessagePieces[0].ToLower();
+			
+			if (PlayerName == "Server")
+			{
+				DebugWrite("HandleChat: from Server? " + CleanMessage, 7);
+				return;
+			}
 
 			if (!Command.StartsWith(CommandPrefix.ToLower()))
 			{
@@ -1226,7 +1232,7 @@ namespace PRoConEvents
 				GameState = GState.Waiting;
 				return; // Don't count this spawn
 			} 
-			else if (PlayerList.Count >= Need && GameState == GState.Waiting)
+			else if (PlayerList.Count >= Need && (GameState == GState.Waiting || GameState == GState.Idle))
 			{
 				TellAll("New match starting ... counting down ..."); // $$$ - custom message
 				CountdownNextRound(ZOMBIE_TEAM); // Sets GameState to CountingDown or NeedSpawn
@@ -1836,7 +1842,7 @@ namespace PRoConEvents
 
 		private void MakeHuman(string PlayerName)
 		{
-			TellAll(String.Concat(PlayerName, " has joined the fight for survival!"), false); // $$$ - custom message
+			//TellAll(String.Concat(PlayerName, " has joined the fight for survival!"), false); // $$$ - custom message
 			
 			DebugWrite("MakeHuman: " + PlayerName, 3);
 
