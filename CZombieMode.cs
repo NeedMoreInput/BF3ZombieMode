@@ -89,6 +89,18 @@ namespace PRoConEvents
 
 		private bool InfectSuicides = true;
 		
+		private static string[] DEFAULT_RULES =
+		{
+			"US team are humans, RU team are zombies",
+			"Zombies use knife/defib/repair tool only!",
+			"Zombies are hard to kill",
+			"Humans use guns only, no explosives (nades, RPG, M320, C4, Claymore, ...)!",
+			"Zombies win by infecting all humans",
+			"When a zombie kills you, you are infected and moved to the zombie team!"
+		};
+		
+		private List<String> RuleList = new List<String>(DEFAULT_RULES);
+		
 		private List<String> TeamHuman = new List<String>();
 		
 		private List<String> TeamZombie = new List<String>();
@@ -982,7 +994,7 @@ namespace PRoConEvents
 					}
 					break;
 				default: // "help"
-					TellPlayer("Try suiciding and respawning", PlayerName);
+					//TellPlayer("Spawn to get things started", PlayerName);
 					if (!IsAdmin(PlayerName))
 					{
 						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn, votekick", PlayerName);
@@ -1391,7 +1403,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.2";
+			return "0.1.3";
 		}
 
 		public string GetPluginAuthor()
@@ -1432,6 +1444,8 @@ namespace PRoConEvents
 			lstReturn.Add(new CPluginVariable("Admin Settings|Votes Needed To Kick", VotesNeededToKick.GetType(), VotesNeededToKick));
 			
 			lstReturn.Add(new CPluginVariable("Admin Settings|Debug Level", DebugLevel.GetType(), DebugLevel));
+
+			lstReturn.Add(new CPluginVariable("Admin Settings|Rule List", typeof(string[]), RuleList.ToArray()));
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), AdminUsers.ToArray()));
 
@@ -2334,12 +2348,8 @@ namespace PRoConEvents
 		{
 			int Delay = 4;
 			List<String> Rules = new List<String>();
+			Rules.AddRange(RuleList);
 			// $$$ - custom message
-			Rules.Add("US team are humans, RU team are zombies");
-			Rules.Add("Zombies use knife/defib/repair tool only!");
-			Rules.Add("Zombies are hard to kill");
-			Rules.Add("Humans use guns only, no explosives!");
-			Rules.Add("Zombies win by infecting all humans");
 			if (ZombieKillLimitEnabled) 
 			{
 				int TotalCount = 0;
@@ -2349,7 +2359,6 @@ namespace PRoConEvents
 				}
 				Rules.Add("Humans win by killing " + GetKillsNeeded(TotalCount) + " zombies");
 			}
-			Rules.Add("When a zombie kills you, you are infected and moved to the zombie team!");
 			
 			String RuleNum = null;
 			int i = 1;
