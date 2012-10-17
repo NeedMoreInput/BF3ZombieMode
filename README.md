@@ -39,6 +39,8 @@ BF3 Zombie Mode
 
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
 
+<p><b>Rule List</b>: A table of rules, one chat/yell line per rule, displayed when players type the <b>!zombie rules</b> in-game command. The default set of rules reflect the default settings, such as humans not using explosives. Useful for when you change the default weapon limitations for humans and zombies, you can tell players what weapons are allowed or forbidden. Also useful if you want to add more rules, like kicking players for using MAV.</p>
+
 <p><b>Admin Users</b>: A table of soldier names that will be permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
 
 <h3>Game Settings</h3>
