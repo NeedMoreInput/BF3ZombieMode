@@ -2122,9 +2122,15 @@ namespace PRoConEvents
 		
 		private void VoteKick(string Voter, string Suspect)
 		{
+			bool AlreadyVoted = PlayerState.AddVote(Suspect, Voter);
+
+			if (AlreadyVoted)
+			{
+				TellPlayer("You already voted to kick " + Suspect, Voter, false);
+				return;
+			}
+
 			int Votes = PlayerState.GetVotes(Suspect);
-			Votes = Votes + 1;
-			PlayerState.SetVotes(Suspect, Votes);
 			
 			DebugWrite("VoteKick: " + Votes + " of " + VotesNeededToKick + " have been cast against " + Suspect, 2);
 			
@@ -2133,7 +2139,7 @@ namespace PRoConEvents
 				TellPlayer("Your vote to kick " + Suspect + " was the last one needed. Kicking now!", Voter, false);
 				TellAll(Suspect + " has been kicked by vote!");
 				KickPlayer(Suspect, "Players voted to kick you!");
-				PlayerState.SetVotes(Suspect, 0);
+				PlayerState.ClearVotes(Suspect);
 			}
 			else
 			{
@@ -2688,7 +2694,7 @@ namespace PRoConEvents
 		
 		public bool IsSpawned = false;
 		
-		public int VotesToKick = 0;
+		public HashSet<String> VotesToKick = new HashSet<String>();
 	}
 
 	class ZombieModePlayerState
@@ -2768,15 +2774,21 @@ namespace PRoConEvents
 		public int GetVotes(String soldierName)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
-			return AllPlayerStates[soldierName].VotesToKick;						
+			return AllPlayerStates[soldierName].VotesToKick.Count;						
 		}
 		
-		public void SetVotes(String soldierName, int Votes)
+		public bool AddVote(String soldierName, String voter)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
-			AllPlayerStates[soldierName].VotesToKick = Votes;			
+			return (!(AllPlayerStates[soldierName].VotesToKick.Add(voter)));			
 		}
-		
+
+		public void ClearVotes(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return;
+			AllPlayerStates[soldierName].VotesToKick.Clear();						
+		}
+
 		public void ResetPerMatch()
 		{
 			foreach (String key in AllPlayerStates.Keys)
@@ -2791,7 +2803,7 @@ namespace PRoConEvents
 			
 			foreach (String key in AllPlayerStates.Keys)
 			{
-				SetSpawnCount(key, 0);
+				ClearVotes(key);
 			}
 		}
 
