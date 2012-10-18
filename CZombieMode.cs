@@ -147,11 +147,11 @@ namespace PRoConEvents
 
 		int Against1Or2Zombies = 5;  // 3+ to 1 ratio humans:zombies
 
-		int AgainstAFewZombies = 10; // 3:1 to 3:2 ratio humans:zombies
+		int AgainstAFewZombies = 15; // 3:1 to 3:2 ratio humans:zombies
 
-		int AgainstEqualNumbers = 15; // 3:2 to 2:3 ratio humans:zombies
+		int AgainstEqualNumbers = 30; // 3:2 to 2:3 ratio humans:zombies
 
-		int AgainstManyZombies = 30; // 2:3 to 1:4 ratio humans:zombies
+		int AgainstManyZombies = 50; // 2:3 to 1:4 ratio humans:zombies
 
 		int AgainstCountlessZombies = 100; // 1 to 4+ ratio humans:zombies
 		
@@ -161,19 +161,19 @@ namespace PRoConEvents
 
 		#region HumanVictoryVars
 
-		int KillsIf8OrLessPlayers = 20;
+		int KillsIf8OrLessPlayers = 12;
 
-		int KillsIf12To9Players = 25;
+		int KillsIf12To9Players = 18;
 
-		int KillsIf16To13Players = 30;
+		int KillsIf16To13Players = 24;
 
-		int KillsIf20To17Players = 40;
+		int KillsIf20To17Players = 30;
 
-		int KillsIf24To21Players = 50;
+		int KillsIf24To21Players = 35;
 
-		int KillsIf28To25Players = 60;
+		int KillsIf28To25Players = 40;
 		
-		int KillsIf32To29Players = 70;
+		int KillsIf32To29Players = 45;
 
 		#endregion
 
@@ -1003,7 +1003,7 @@ namespace PRoConEvents
 					//TellPlayer("Spawn to get things started", PlayerName);
 					if (!IsAdmin(PlayerName))
 					{
-						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn, votekick", PlayerName);
+						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn, votekick", PlayerName, false);
 					}
 					else
 					{
@@ -1423,17 +1423,17 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.4";
+			return "0.1.4.0";
 		}
 
 		public string GetPluginAuthor()
 		{
-			return "m4xxd3v";
+			return "PapaCharlie9, m4xxd3v";
 		}
 
 		public string GetPluginWebsite()
 		{
-			return "http://www.phogue.net";
+			return "https://github.com/m4xxd3v/BF3ZombieMode";
 		}
 
 		public string GetPluginDescription()
@@ -2114,11 +2114,14 @@ namespace PRoConEvents
 			int TotalCount = 0;
 			int HCount = 0;
 			int ZCount = 0;
+			string msg = null;
+			string Winner = null;
 			lock(TeamHuman)
 			{
 				HCount = TeamHuman.Count;
 				ZCount = TeamZombie.Count;
 				TotalCount = HCount + ZCount;
+				if (HCount == 1) Winner = TeamHuman[0];
 			}
 
 			Needed = GetKillsNeeded(TotalCount);
@@ -2126,17 +2129,23 @@ namespace PRoConEvents
 			// All zombies left the server?
 			if (ZCount == 0 && HCount > 0)
 			{
-				string msg = "HUMANS WIN, no zombies left on the server!"; // $$$ - custom message
+				msg = "HUMANS WIN, no zombies left on the server!"; // $$$ - custom message
 				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
 				return;
 			}
 
-			// Humans got enough kills?
-			if (HCount > 0 && KillTracker.GetZombiesKilled() >= Needed)
+			if (ZombieKillLimitEnabled == false && Winner != null && ZCount > MinimumZombies) // Last man standing?
 			{
-				string msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
+				msg = "WINNER: " + Winner + " is the last human survivor!"; // $$$ - custom message
+				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+				TellAll(msg);
+				CountdownNextRound(HUMAN_TEAM);
+			}
+			else if (HCount > 0 && KillTracker.GetZombiesKilled() >= Needed) // Humans got enough kills?
+			{
+				msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
 				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
@@ -2146,7 +2155,7 @@ namespace PRoConEvents
 				// All humans infected?
 				if (HCount == 0 && ZCount > MinimumZombies)
 				{
-					string msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
+					msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
 					DebugWrite("^7^b ***** " + msg + "^n^0", 1);
 					TellAll(msg);
 					CountdownNextRound(ZOMBIE_TEAM);
