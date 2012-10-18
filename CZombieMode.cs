@@ -1281,6 +1281,7 @@ namespace PRoConEvents
 							TellAll("ZOMBIE MODE STOPPED - teams are not right!");
 							TellAll("Respawn or run next map round/level to fix it", false);
 							Reset();
+							RequestPlayersList(); // Should fix up teams
 							return;
 						}
 					}
@@ -2903,6 +2904,8 @@ namespace PRoConEvents
 
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
 
+<p><b>Rule List</b>: A table of rules, one chat/yell line per rule, displayed when players type the <b>!zombie rules</b> in-game command. The default set of rules reflect the default settings, such as humans not using explosives. Useful for when you change the default weapon limitations for humans and zombies, you can tell players what weapons are allowed or forbidden. Also useful if you want to add more rules, like kicking players for using MAV.</p>
+
 <p><b>Admin Users</b>: A table of soldier names that will be permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
 
 <h3>Game Settings</h3>
@@ -2927,19 +2930,19 @@ namespace PRoConEvents
 
 <p>If <b>Zombie Kill Limit Enabled</b> is <i>On</i>, humans musts kill the specified number of zombies in order to win. The kill goal is adaptive to the number of players in the match, specified in intervals of four, as follows:</p>
 
-<p><b>Kills If 8 Or Less Players</b>: the default value is <i>20</i>.</p>
+<p><b>Kills If 8 Or Less Players</b>: the default value is <i>12</i>.</p>
 
-<p><b>Kills If 12 To 9 Players</b>: the default value is <i>25</i>.</p>
+<p><b>Kills If 12 To 9 Players</b>: the default value is <i>18</i>.</p>
 
-<p><b>Kills If 16 To 13 Players</b>: the default value is <i>30</i>.</p>
+<p><b>Kills If 16 To 13 Players</b>: the default value is <i>24</i>.</p>
 
-<p><b>Kills If 20 To 17 Players</b>: the default value is <i>40</i>.</p>
+<p><b>Kills If 20 To 17 Players</b>: the default value is <i>30</i>.</p>
 
-<p><b>Kills If 24 To 21 Players</b>: the default value is <i>50</i>.</p>
+<p><b>Kills If 24 To 21 Players</b>: the default value is <i>35</i>.</p>
 
-<p><b>Kills If 28 To 25 Players</b>: the default value is <i>60</i>.</p>
+<p><b>Kills If 28 To 25 Players</b>: the default value is <i>40</i>.</p>
 
-<p><b>Kills If 32 To 29 Players</b>: the default value is <i>70</i>.</p>
+<p><b>Kills If 32 To 29 Players</b>: the default value is <i>50</i>.</p>
 
 <h3>Human Damage Percentage</h3>
 
@@ -2947,11 +2950,11 @@ namespace PRoConEvents
 
 <p><b>Against 1 Or 2 Zombies</b>: the default value is <i>5</i>. When humans outnumber zombies 3-to-1 or more (e.g., 18 vs 1).</p>
 
-<p><b>Against A Few Zombies</b>: the default value is <i>10</i>. When humans outnumber zombies between 3-to-1 and 3-to-2 (e.g., 12 vs 7).</p>
+<p><b>Against A Few Zombies</b>: the default value is <i>15</i>. When humans outnumber zombies between 3-to-1 and 3-to-2 (e.g., 12 vs 7).</p>
 
-<p><b>Against Equal Numbers</b>: the default value is <i>15</i>. When humans and zombies are roughly equal in number, betwee 3-to-2 and 2-to-3 (e.g., 8 vs 11).</p>
+<p><b>Against Equal Numbers</b>: the default value is <i>30</i>. When humans and zombies are roughly equal in number, betwee 3-to-2 and 2-to-3 (e.g., 8 vs 11).</p>
 
-<p><b>Against Many Zombies</b>: the default value is <i>30</i>. When zombies outnumber humans between 3-to-2 and 4-to-1 (e.g., 5 vs 14).</p>
+<p><b>Against Many Zombies</b>: the default value is <i>50</i>. When zombies outnumber humans between 3-to-2 and 4-to-1 (e.g., 5 vs 14).</p>
 
 <p><b>Against Countless Zombies</b>: the default value is <i>100</i>. When zombies outnumber humans 4-to-1 or more (e.g., 2 vs 17).</p>
 
