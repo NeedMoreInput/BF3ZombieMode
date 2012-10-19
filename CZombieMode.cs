@@ -536,7 +536,7 @@ namespace PRoConEvents
 				InfectMessage = "*** No humans left!"; // $$$ - custom message
 			}
 
-			String Notice = DamageType + " results in non-scoring accidental death, respawn and try again";  // $$$ - custom message
+			String Notice = WeaponName + " results in non-scoring accidental death, respawn and try again";  // $$$ - custom message
 
 			// Weapon validation
 			
@@ -624,29 +624,23 @@ namespace PRoConEvents
 			else if (KillerTeam == ZOMBIE_TEAM && VictimTeam == HUMAN_TEAM)
 			{
 				DebugWrite(String.Concat("Zombie ", KillerName, " just killed human ", VictimName, " with ", WeaponName), 2);
+				
+				if (Regex.Match(WeaponName, @"(?:Knife|Melee|Defib|Repair)", RegexOptions.IgnoreCase).Success)
+				{
+					KillTracker.HumanKilled(KillerName, VictimName);
 
-				KillTracker.HumanKilled(KillerName, VictimName);
-				
-				try
-				{
 					if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
-					{
-						DebugWrite("^4SUCCESSFUL^0 Infection Test: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " == " + DeathsNeededToBeInfected, 5);
-					}
-					else
-					{
-						DebugWrite("^8FAILED^0 Infection Test: " + VictimName + " death count = " + KillTracker.GetPlayerHumanDeathCount(VictimName) + " != " + DeathsNeededToBeInfected, 5);
+					{					
+						Infect(KillerName, VictimName);
+						TellAll(InfectMessage, false); // do not overwrite Infect yell
 					}
 				}
-				catch (Exception e)
+				else
 				{
-					ConsoleException(e.ToString());
-				}
-				
-				if (KillTracker.GetPlayerHumanDeathCount(VictimName) == DeathsNeededToBeInfected)
-				{					
-					Infect(KillerName, VictimName);
-					TellAll(InfectMessage, false); // do not overwrite Infect yell
+					Notice = "Zombie " + KillerName + " using " + WeaponName + " did NOT infect human " + VictimName;
+					DebugWrite(Notice, 2);
+					TellPlayer(Notice, KillerName);
+					TellPlayer(Notice, VictimName, false);
 				}
 			}
 
