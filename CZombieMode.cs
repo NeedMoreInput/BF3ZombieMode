@@ -1063,7 +1063,8 @@ namespace PRoConEvents
 			if (GameState == GState.Idle || GameState == GState.Waiting || GameState == GState.CountingDown)
 				return;
 			
-			string team = (wasHuman) ? "HUMAN" : "ZOMBIE";
+			string team = (wasHuman) ? "HUMAN" : "JOINING";
+			team = (wasZombie) ? "ZOMBIE" : "JOINING";
 			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
 			
 			if (GameState != GState.BetweenRounds)
@@ -1150,6 +1151,14 @@ namespace PRoConEvents
 				{
 					while (ZombieCount < MinimumZombies)
 					{
+						// Sanity checks
+						if (PlayerList.Count < (MinimumZombies + MinimumHumans))
+						{
+							DebugWrite("OnPlayerTeamChange: not enough players " + PlayerList.Count, 2);
+							Reset();
+							return;
+						}
+
 						if (Lottery.Count == 0)
 						{
 							// loop through players, adding to Lottery if eligible
