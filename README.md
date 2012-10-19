@@ -124,7 +124,7 @@ will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 
 <p><b>!zombie votekick</b> <i>name</i>: Adds a vote to kick the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is kicked. Votes are cleared after the player is kicked.</p>
 
-<p><b>!zombie votekill</b> <i>name</i>: Adds a vote to kill the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is killed. The kill does not count for scoring or infetion. Votes are cleared after the player is killed. This is useful when humans camp in a spot unreachable by zombies without using an illegal weapon. The zombies can vote to kill the human, which forces him to spawn in a random location.</p>
+<p><b>!zombie votekill</b> <i>name</i>: Adds a vote to kill the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is killed. The kill does not count for scoring or infection. Votes are cleared after the player is killed. This is useful when humans camp in a spot unreachable by zombies without using an illegal weapon. The zombies can vote to kill the human, which forces him to spawn in a random location.</p>
 
 <h3>Commands for Admins only</h3>
 
