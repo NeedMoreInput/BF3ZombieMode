@@ -973,6 +973,19 @@ namespace PRoConEvents
 					DebugWrite(PlayerName + " voted to kick " + Target, 3);
 					VoteKick(PlayerName, Target);
 					break;
+				case "votekill":
+					if (ZombieModeEnabled == false || GameState == GState.Idle)
+						return;
+					if (MessagePieces.Count < 2) return;
+					Target = PlayerNameMatch(MessagePieces[1]);
+					if (Target == null) 
+					{
+						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
+						return;
+					}
+					DebugWrite(PlayerName + " voted to kill " + Target, 3);
+					VoteKill(PlayerName, Target);
+					break;
 				case "status":
 					TellStatus(PlayerName);
 					break;
@@ -997,13 +1010,13 @@ namespace PRoConEvents
 					//TellPlayer("Spawn to get things started", PlayerName);
 					if (!IsAdmin(PlayerName))
 					{
-						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn, votekick", PlayerName, false);
+						TellPlayer("Type !zombie <command>\nCommands: rules, help, status, idle, warn, votekick, votekill", PlayerName, false);
 					}
 					else
 					{
 						TellPlayer("Type !zombie <command>\nTo force a match to start, type: !zombie force", PlayerName, false);
 						TellPlayer("Admin commands: infect, heal, rematch, restart, next, force, mode, kill, kick", PlayerName, false);
-						TellPlayer("Player commands: rules, help, status, idle, warn, votekick", PlayerName, false);
+						TellPlayer("Player commands: rules, help, status, idle, warn, votekick, votekill", PlayerName, false);
 					}
 					break;
 			}
@@ -1418,7 +1431,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.4.0";
+			return "0.1.5.0";
 		}
 
 		public string GetPluginAuthor()
@@ -2160,7 +2173,7 @@ namespace PRoConEvents
 		
 		private void VoteKick(string Voter, string Suspect)
 		{
-			bool AlreadyVoted = PlayerState.AddVote(Suspect, Voter);
+			bool AlreadyVoted = PlayerState.AddKickVote(Suspect, Voter);
 
 			if (AlreadyVoted)
 			{
@@ -2168,7 +2181,7 @@ namespace PRoConEvents
 				return;
 			}
 
-			int Votes = PlayerState.GetVotes(Suspect);
+			int Votes = PlayerState.GetKickVotes(Suspect);
 			
 			DebugWrite("VoteKick: " + Votes + " of " + VotesNeededToKick + " have been cast against " + Suspect, 2);
 			
@@ -2177,11 +2190,38 @@ namespace PRoConEvents
 				TellPlayer("Your vote to kick " + Suspect + " was the last one needed. Kicking now!", Voter, false);
 				TellAll(Suspect + " has been kicked by vote!");
 				KickPlayer(Suspect, "Players voted to kick you!");
-				PlayerState.ClearVotes(Suspect);
+				PlayerState.ClearKickVotes(Suspect);
 			}
 			else
 			{
 				TellPlayer("Your vote was " + Votes + " of " + VotesNeededToKick + " needed to kick " + Suspect, Voter, false);
+			}
+		}
+
+		private void VoteKill(string Voter, string Suspect)
+		{
+			bool AlreadyVoted = PlayerState.AddKillVote(Suspect, Voter);
+
+			if (AlreadyVoted)
+			{
+				TellPlayer("You already voted to kill " + Suspect, Voter, false);
+				return;
+			}
+
+			int Votes = PlayerState.GetKillVotes(Suspect);
+			
+			DebugWrite("VoteKill: " + Votes + " of " + VotesNeededToKick + " have been cast against " + Suspect, 2);
+			
+			if (Votes >= VotesNeededToKick)
+			{
+				TellPlayer("Your vote to kill " + Suspect + " was the last one needed. Kill in 5 seconds!", Voter, false);
+				TellAll(Suspect + " has been killed by vote!");
+				KillPlayerAfterDelay(Suspect, 3);
+				PlayerState.ClearKillVotes(Suspect);
+			}
+			else
+			{
+				TellPlayer("Your vote was " + Votes + " of " + VotesNeededToKick + " needed to kill " + Suspect, Voter, false);
 			}
 		}
 
@@ -2730,6 +2770,8 @@ namespace PRoConEvents
 		public bool IsSpawned = false;
 		
 		public List<String> VotesToKick = new List<String>();
+
+		public List<String> VotesToKill = new List<String>();
 	}
 
 	class ZombieModePlayerState
@@ -2806,13 +2848,13 @@ namespace PRoConEvents
 			return(time.TotalSeconds);
 		}
 
-		public int GetVotes(String soldierName)
+		public int GetKickVotes(String soldierName)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
 			return AllPlayerStates[soldierName].VotesToKick.Count;						
 		}
 		
-		public bool AddVote(String soldierName, String voter)
+		public bool AddKickVote(String soldierName, String voter)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
 			if (AllPlayerStates[soldierName].VotesToKick.Contains(voter)) return true;
@@ -2820,10 +2862,30 @@ namespace PRoConEvents
 			return false;
 		}
 
-		public void ClearVotes(String soldierName)
+		public void ClearKickVotes(String soldierName)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return;
 			AllPlayerStates[soldierName].VotesToKick.Clear();						
+		}
+
+		public int GetKillVotes(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return 0;
+			return AllPlayerStates[soldierName].VotesToKill.Count;						
+		}
+		
+		public bool AddKillVote(String soldierName, String voter)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) AddPlayer(soldierName);
+			if (AllPlayerStates[soldierName].VotesToKill.Contains(voter)) return true;
+			AllPlayerStates[soldierName].VotesToKill.Add(voter);
+			return false;
+		}
+
+		public void ClearKillVotes(String soldierName)
+		{
+			if (!AllPlayerStates.ContainsKey(soldierName)) return;
+			AllPlayerStates[soldierName].VotesToKill.Clear();						
 		}
 
 		public void ResetPerMatch()
@@ -2840,7 +2902,7 @@ namespace PRoConEvents
 			
 			foreach (String key in AllPlayerStates.Keys)
 			{
-				ClearVotes(key);
+				ClearKickVotes(key);
 			}
 		}
 
