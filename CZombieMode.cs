@@ -2956,7 +2956,7 @@ namespace PRoConEvents
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
-<p><b>Votes Needed To Kick</b>: Number of votes needed to kick a player with the <b>!zombie votekick</b> command. The default value is <i>3</i>.</p>
+<p><b>Votes Needed To Kick</b>: Number of votes needed to kick a player with the <b>!zombie votekick</b> command or kill a player with the <b>!zombie votekill</b> command. The default value is <i>3</i>.</p>
 
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
 
@@ -3045,6 +3045,8 @@ will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 
 <p><b>!zombie votekick</b> <i>name</i>: Adds a vote to kick the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is kicked. Votes are cleared after the player is kicked.</p>
 
+<p><b>!zombie votekill</b> <i>name</i>: Adds a vote to kill the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is killed. The kill does not count for scoring or infection. Votes are cleared after the player is killed. This is useful when humans camp in a spot unreachable by zombies without using an illegal weapon. The zombies can vote to kill the human, which forces him to spawn in a random location.</p>
+
 <h3>Commands for Admins only</h3>
 
 <p><b>!zombie force</b>: Force a match to start, even if there are not enough players. Useful if players aren't spawning fast enough to get a match started or if the plugin gets into a confused state (please report a bug so we can fix it).</p>
@@ -3066,6 +3068,7 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie rematch</b> <i>on</i>/<i>off</i>: Changes the <b>Rematch Enabled</b> setting</p>
 
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
+
 
 <h3>Changelog</h3>
 <blockquote><h4>1.0.0 (14-OCT-2012)</h4>
