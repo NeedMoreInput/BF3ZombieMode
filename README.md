@@ -35,7 +35,7 @@ BF3 Zombie Mode
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
-<p><b>Votes Needed To Kick</b>: Number of votes needed to kick a player with the <b>!zombie votekick</b> command. The default value is <i>3</i>.</p>
+<p><b>Votes Needed To Kick</b>: Number of votes needed to kick a player with the <b>!zombie votekick</b> command or kill a player with the <b>!zombie votekill</b> command. The default value is <i>3</i>.</p>
 
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
 
@@ -123,6 +123,8 @@ Where <b>N</b> is the number of players on that team, <b>K</b> is the number of 
 will yell the message 'Quit glitching u noob!' to PapaCharlie9.</p>
 
 <p><b>!zombie votekick</b> <i>name</i>: Adds a vote to kick the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is kicked. Votes are cleared after the player is kicked.</p>
+
+<p><b>!zombie votekill</b> <i>name</i>: Adds a vote to kill the player with the specified <i>name</i>. Only one vote is counted per voter. Once <b>Votes Needed To Kick</b> votes have been reached, the player is killed. The kill does not count for scoring or infetion. Votes are cleared after the player is killed. This is useful when humans camp in a spot unreachable by zombies without using an illegal weapon. The zombies can vote to kill the human, which forces him to spawn in a random location.</p>
 
 <h3>Commands for Admins only</h3>
 
