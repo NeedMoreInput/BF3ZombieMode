@@ -1941,6 +1941,7 @@ namespace PRoConEvents
 
 		private void MakeTeams()
 		{
+			GState FinalState = GState.NeedSpawn;
 			ThreadStart makeTeams = delegate
 			{
 				try
@@ -1999,11 +2000,21 @@ namespace PRoConEvents
 						
 						lock (TeamHuman)
 						{
-							for (int i = 0; i < TeamHuman.Count; ++i)
+							if (TeamHuman.Count > 0) for (int i = 0; i < TeamHuman.Count; ++i)
 							{
 								Lottery.Add(TeamHuman[i]);
 								if ((i + 1) >= MinimumZombies) break;
 							}
+						}
+
+						if (Lottery.Count < MinimumZombies)
+						{
+							ConsoleError("MakeTeams: not enough players in human team, patient zero lottery failed!");
+							TellAll("ERROR making teams, mode HALTED, respawn or restart round to fix!");
+							Reset();
+							FinalState = GState.Idle;
+							RequestPlayerList();
+							return;
 						}
 					}
 					
@@ -2027,12 +2038,14 @@ namespace PRoConEvents
 						if (PatientZeroes.Count > (KnownPlayerCount/2)) PatientZeroes.Clear();
 						
 						PatientZeroes.Add(PatientZero);
+
+						if (Lottery.Count == 0) break;
 					}
 					
 
-					DebugWrite("makeTeams: lottery selected " + PatientZero + " as first zombie!", 2);
+					DebugWrite("MakeTeams: lottery selected " + PatientZero + " as first zombie!", 2);
 
-					DebugWrite("makeTeams: ready for another round!", 2);
+					DebugWrite("MakeTeams: ready for another round!", 2);
 					
 					TellAll("*** Spawn now, Zombie Mode is on!"); // $$$ - custom message
 					
@@ -2050,11 +2063,11 @@ namespace PRoConEvents
 				} 
 				catch (Exception e)
 				{
-					ConsoleException("nukeZombies: " + e.ToString());
+					ConsoleException("MakeTeams: " + e.ToString());
 				}
 				finally
 				{
-					GameState = GState.NeedSpawn;
+					GameState = FinalState;
 				}
 			};
 			
