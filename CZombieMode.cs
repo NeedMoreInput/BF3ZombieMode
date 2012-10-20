@@ -135,6 +135,8 @@ namespace PRoConEvents
 		
 		private SynchronizedNumbers NumRulesThreads  = new SynchronizedNumbers();
 		
+		private SynchronizedNumbers LastRequestPlayersList = new SynchronizedNumbers();
+		
 		private enum GState { 
 			Idle,			// No players, no match in progress, or just reset
 			Waiting, 		// Waiting for minimum number of players to spawn
@@ -149,7 +151,7 @@ namespace PRoConEvents
 		private GState OldGameState = GState.BetweenRounds;
 		
 		private DescriptionClass Description = new DescriptionClass();
-
+		
 		#endregion
 
 
@@ -433,9 +435,6 @@ namespace PRoConEvents
 			
 			if (PlayerList.Count <= MaxPlayers) 
 			{
-				DebugWrite("OnPlayerAuthenticated: making " + SoldierName + " human", 3);
-				MakeHuman(SoldierName);
-				
 				PlayerState.AddPlayer(SoldierName);
 				return;
 			}
@@ -1869,7 +1868,19 @@ namespace PRoConEvents
 
 		private void RequestPlayersList()
 		{
+			lock (LastRequestPlayersList)
+			{
+				TimeSpan since = DateTime.Now - LastRequestPlayersList.TimeVal;
+
+				// Don't request list more frequently than every 2 seconds
+
+				if (since.TotalSeconds < 2) return;
+
+				LastRequestPlayersList.TimeVal = DateTime.Now;
+			}
+			
 			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+
 		}
 
 		public void Infect(string Carrier, string Victim)
@@ -1883,11 +1894,9 @@ namespace PRoConEvents
 
 		private void MakeHuman(string PlayerName)
 		{
-			//TellAll(String.Concat(PlayerName, " has joined the fight for survival!"), false); // $$$ - custom message
-			
 			DebugWrite("MakeHuman: " + PlayerName, 3);
 
-			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
+			ForceMove(PlayerName, HUMAN_TEAM);
 			
 			lock (TeamHuman)
 			{
@@ -1903,7 +1912,14 @@ namespace PRoConEvents
 				try
 				{
 					// Delay for message?
-					if (DelaySecs != 0) Thread.Sleep(DelaySecs * 1000);
+					if (DelaySecs != 0) 
+					{
+						Thread.Sleep(DelaySecs * 1000);
+					}
+					else
+					{
+						Thread.Sleep(100);
+					}
 					
 					// Kill player requires a delay to work correctly
 					
@@ -1913,6 +1929,8 @@ namespace PRoConEvents
 					
 					// Now do the move
 
+					DebugWrite("ForceMove: Executing move of player " + PlayerName + " now!", 5);
+					
 					ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, TeamId, BLANK_SQUAD, FORCE_MOVE);
 					
 					Thread.Sleep(300);
@@ -2950,7 +2968,7 @@ namespace PRoConEvents
 	class SynchronizedNumbers
 	{
 		public int IntVal = 0;
-		public double DoubleVal = 0;
+		public DateTime TimeVal = DateTime.Now;
 	}
 	
 	/* Always at the end of the file */
