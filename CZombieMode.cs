@@ -1450,7 +1450,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.6.0";
+			return "0.1.7.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1973,9 +1973,12 @@ namespace PRoConEvents
 					
 					List<String> ZombieCopy = new List<String>();
 					
+					int TotalNum = 0;
+					
 					lock (TeamHuman) // Only lock this object for both humans and zombies
 					{
 						ZombieCopy.AddRange(TeamZombie);
+						TotalNum = TeamHuman.Count + TeamZombie.Count;
 					}
 					
 					foreach (String z in ZombieCopy)
@@ -2012,7 +2015,7 @@ namespace PRoConEvents
 					
 					if (Lottery.Count < MinimumZombies)
 					{
-						ConsoleWarn("makeTeams, can't find enough eligible players for patient zero!");
+						ConsoleWarn("MakeTeams, can't find enough eligible players for patient zero!");
 						
 						PatientZeroes.Clear();
 						Lottery.Clear();
@@ -2032,7 +2035,7 @@ namespace PRoConEvents
 							TellAll("ERROR making teams, mode HALTED, respawn or restart round to fix!");
 							Reset();
 							FinalState = GState.Idle;
-							RequestPlayerList();
+							RequestPlayersList();
 							return;
 						}
 					}
@@ -2064,9 +2067,9 @@ namespace PRoConEvents
 
 					DebugWrite("MakeTeams: lottery selected " + PatientZero + " as first zombie!", 2);
 
-					DebugWrite("MakeTeams: ready for another round!", 2);
+					DebugWrite("MakeTeams: ready for another round with " +TotalNum + " players!", 2);
 					
-					TellAll("*** Spawn now, Zombie Mode is on!"); // $$$ - custom message
+					TellAll("*** Spawn now, Zombie Mode is on! " + TotalNum + " players"); // $$$ - custom message
 					
 					// Reset state
 
