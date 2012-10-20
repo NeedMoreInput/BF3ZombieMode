@@ -97,7 +97,7 @@ namespace PRoConEvents
 
 		private bool ZombieKillLimitEnabled = true;
 
-		private bool InfectSuicides = true;
+		private bool InfectSuicides = false;
 		
 		private static string[] DEFAULT_RULES =
 		{
@@ -595,10 +595,10 @@ namespace PRoConEvents
 
 			if (KillerName == VictimName)
 			{
-				if (InfectSuicides)
+				if (KillerTeam == HUMAN_TEAM && InfectSuicides)
 				{
 					DebugWrite("Suicide infected: " + VictimName, 2);
-					Infect("Suicide ", VictimName);
+					Infect("Suicide", VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
 				}
 				else
@@ -2054,7 +2054,7 @@ namespace PRoConEvents
 						PatientZero = Lottery[choice];
 						Lottery.Remove(PatientZero);
 						
-						Infect("Patient Zero ", PatientZero);
+						Infect("Patient Zero", PatientZero);
 						++ZombieCount;
 						
 						if (PatientZeroes.Count > (KnownPlayerCount/2)) PatientZeroes.Clear();
@@ -3011,7 +3011,7 @@ namespace PRoConEvents
 
 <p><b>Deaths Needed To Be Infected</b>: The number of times a human must be killed by a zombie before the human becomes infected and is forced to switch to the zombie team. The default value is <i>1</i>.</p>
 
-<p><b>Infect Suicides</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, a human that suicides becomes a zombie. If <i>Off</i>, the human stays human but still dies.</p>
+<p><b>Infect Suicides</b>: <i>On/Off</i>, default is <i>Off</i>. If <i>On</i>, a human that suicides becomes a zombie. If <i>Off</i>, the human stays human but still dies. Neither setting changes suicides for zombies, they are always non-scoring.</p>
 
 <p><b>New Players Join Humans</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, any new players that join the server will be force moved to the human team. If <i>Off</i>, any new players that join the server will be force moved to the zombie team.</p>
 
