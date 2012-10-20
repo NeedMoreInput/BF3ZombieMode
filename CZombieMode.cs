@@ -2581,6 +2581,12 @@ namespace PRoConEvents
 				}
 				TellPlayer("HUMANS: N=" + HCount + ",K=" + KillTracker.GetZombiesKilled() + ",G=" + GetKillsNeeded(HCount + ZCount), SoldierName, false);
 				TellPlayer("ZOMBIES: N=" + ZCount + ",D=" + BulletDamage, SoldierName, false);
+				
+				int KillVotes = PlayerState.GetKillVotes(SoldierName);
+				if (KillVotes > 0) TellPlayer("You have " + KillVotes + " of " + VotesNeededToKick + " kill votes against you!", SoldierName, false); // $$$ - custom message
+				
+				int KickVotes = PlayerState.GetKickVotes(SoldierName);
+				if (KickVotes > 0) TellPlayer("You have " + KickVotes + " of " + VotesNeededToKick + " KICK votes against you!", SoldierName, false); // $$$ - custom message
 			}
 		}
 
@@ -3090,7 +3096,7 @@ namespace PRoConEvents
 <p><b>!zombie status</b>: Shows the status of the match to the player, for example, if the mode is waiting for more players to join, or if it is Idle (waiting for a player to spawn so that it can reset), counting down to the next match, etc. If a match is in progress (Playing), it also shows some statistics for the match, for example:<pre>
 HUMANS: N=4,K=23,G=30
 ZOMBIES: N=16,D=100</pre><br/>
-Where <b>N</b> is the number of players on that team, <b>K</b> is the number of zombies the humans have killed, <b>G</b> is the number of zombies the humans need to kill to win, and <b>D</b> is the current bullet damage.</p>
+Where <b>N</b> is the number of players on that team, <b>K</b> is the number of zombies the humans have killed, <b>G</b> is the number of zombies the humans need to kill to win, and <b>D</b> is the current bullet damage. If there are votekicks or votekills against you, the current vote counts will also be shown.</p>
 
 <p><b>!zombie warn</b> <i>name</i> <i>reason</i>: Sends a warning yell to the player with the specified <i>name</i>. The <i>reason</i> is one or more words. For example:
 <pre>!zombie warn PapaCharlie9 Quit glitching u noob!</pre><br/>
@@ -3122,9 +3128,8 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
-
 <h3>Changelog</h3>
-<blockquote><h4>1.0.0 (14-OCT-2012)</h4>
+<blockquote><h4>1.0.0 (20-OCT-2012)</h4>
 	- initial version<br/>
 </blockquote>
 ";
