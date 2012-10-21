@@ -156,6 +156,8 @@ namespace PRoConEvents
 		
 		private DescriptionClass Description = new DescriptionClass();
 		
+		private List<String> JoinQueue = new List<String>();
+		
 		#endregion
 
 
@@ -411,6 +413,8 @@ namespace PRoConEvents
 					PlayerKickQueue.Remove(SoldierName);
 				}
 			}
+			
+			RemoveJoinQueue(SoldierName);
 
 		}
 		
@@ -420,6 +424,7 @@ namespace PRoConEvents
 			if (ZombieModeEnabled)
 			{
 				KillTracker.AddPlayer(SoldierName);
+				AddJoinQueue(SoldierName);
 				RequestPlayersList();
 			}
 			else
@@ -435,9 +440,9 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 
-			DebugWrite("OnPlayerAuthenticated: " + SoldierName + ", MaxPlayers = " + MaxPlayers + "  PlayerList.Count = " + PlayerList.Count, 3);
+			DebugWrite("OnPlayerAuthenticated: " + SoldierName + ", Player.Count=" + PlayerList.Count + " + JoinQueue.Count=" + JoinQueue.Count + " ? MaxPlayers=" + MaxPlayers, 3);
 			
-			if (PlayerList.Count < MaxPlayers) 
+			if (PlayerList.Count + JoinQueue.Count <= MaxPlayers) 
 			{
 				PlayerState.AddPlayer(SoldierName);
 				return;
@@ -445,7 +450,7 @@ namespace PRoConEvents
 			
 			// Otherwise, we have too many players, kick this one
 			
-			DebugWrite("OnPlayerAuthenticated: " + PlayerList.Count + " > " + MaxPlayers + ", need to kick " + SoldierName, 2);
+			DebugWrite("OnPlayerAuthenticated: MaxPlayers of " + MaxPlayers + " exceeded, need to kick " + SoldierName, 2);
 
 			base.OnPlayerAuthenticated(SoldierName, guid);
 			
@@ -649,7 +654,7 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 			
-			if (Players.Count > 0) DebugWrite("OnListPlayers: " + Players.Count + " players", 6);
+			if (Players.Count + JoinQueue.Count > 0) DebugWrite("OnListPlayers: " + (Players.Count + JoinQueue.Count) + " players", 5);
 			if (OldGameState != GameState) DebugWrite("OnListPlayers: GameState = " + GameState, 3);
 			OldGameState = GameState;
 				
@@ -683,6 +688,8 @@ namespace PRoConEvents
 				{
 					DebugWrite("OnListPlayers: unknown team " + Player.TeamID + " for player " + Player.SoldierName, 5);
 				}
+				
+				RemoveJoinQueue(Player.SoldierName);
 			}
 			
 			// Check for differences
@@ -1044,6 +1051,8 @@ namespace PRoConEvents
 		{
 			if (ZombieModeEnabled == false)
 				return;
+			
+			RemoveJoinQueue(soldierName);
 				
 			// Kick any over max players
 			bool KickIt = false;
@@ -1240,6 +1249,8 @@ namespace PRoConEvents
 				GameState = GState.Idle;
 				return;
 			}
+			
+			RemoveJoinQueue(soldierName);
 
 			// Kick any over max players
 			bool KickIt = false;
@@ -1277,7 +1288,7 @@ namespace PRoConEvents
 
 			// Check if we have enough players spawned
 			int Need = MinimumHumans + MinimumZombies;
-			if (PlayerList.Count < Need)
+			if (CountAllTeams() < Need)
 			{
 				if (GameState == GState.Playing)
 				{
@@ -1286,12 +1297,12 @@ namespace PRoConEvents
 				}
 				else
 				{
-					TellAll("Welcome to Zombie Mode! Need " + (Need-PlayerList.Count) + " more players to join AND spawn to start the match ..."); // $$$ - custom message
+					TellAll("Welcome to Zombie Mode! Need " + (Need-CountAllTeams()) + " more players to join AND spawn to start the match ..."); // $$$ - custom message
 				}
 				GameState = GState.Waiting;
 				return; // Don't count this spawn
 			} 
-			else if (PlayerList.Count >= Need && (GameState == GState.Waiting || GameState == GState.Idle))
+			else if (CountAllTeams() >= Need && (GameState == GState.Waiting || GameState == GState.Idle))
 			{
 				TellAll("New match starting ... counting down ..."); // $$$ - custom message
 				CountdownNextRound(ZOMBIE_TEAM); // Sets GameState to CountingDown or NeedSpawn
@@ -1303,7 +1314,7 @@ namespace PRoConEvents
 			{
 				GameState = GState.Playing;
 				DebugWrite("--- Version " + GetPluginVersion() + " ---", 2);
-				DebugWrite("^b^2****** MATCH STARTING WITH " + PlayerList.Count + " players!^0^n", 1);
+				DebugWrite("^b^2****** MATCH STARTING WITH " + CountAllTeams() + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 5);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
 			}
@@ -1429,6 +1440,8 @@ namespace PRoConEvents
 			DebugWrite("OnPlayerLeft: " + playerInfo.SoldierName, 4);
 			
 			KillTracker.RemovePlayer(playerInfo.SoldierName);
+			
+			RemoveJoinQueue(playerInfo.SoldierName);
 			
 			lock (PlayerKickQueue)
 			{
@@ -2401,6 +2414,24 @@ namespace PRoConEvents
 				TellPlayer("Your vote was " + Votes + " of " + VotesNeededToKick + " needed to kill " + Suspect, Voter, false);
 			}
 		}
+		
+		private int CountAllTeams()
+		{
+			lock (TeamHuman)
+			{
+				return TeamHuman.Count + TeamZombie.Count;
+			}
+		}
+		
+		private void AddJoinQueue(String Name)
+		{
+			if (!JoinQueue.Contains(Name)) JoinQueue.Add(Name);
+		}
+		
+		private void RemoveJoinQueue(String Name)
+		{
+			if (JoinQueue.Contains(Name)) JoinQueue.Remove(Name);
+		}
 
 		#endregion
 
@@ -2593,11 +2624,7 @@ namespace PRoConEvents
 			// $$$ - custom message
 			if (ZombieKillLimitEnabled) 
 			{
-				int TotalCount = 0;
-				lock (TeamHuman)
-				{
-					TotalCount = TeamHuman.Count + TeamZombie.Count;
-				}
+				int TotalCount = CountAllTeams();
 				Rules.Add("Humans win by killing " + GetKillsNeeded(TotalCount) + " zombies");
 			}
 			
@@ -2669,10 +2696,7 @@ namespace PRoConEvents
 					status = "No one is playing zombie mode (Idle)!";
 					break;
 				case GState.Waiting:
-					lock (TeamHuman)
-					{
-						status = "Waiting for " + (MinimumHumans+MinimumZombies-TeamHuman.Count-TeamZombie.Count) + " more players to spawn (Waiting)!";
-					}
+					status = "Waiting for " + (MinimumHumans+MinimumZombies-CountAllTeams()) + " more players to spawn (Waiting)!";
 					break;
 				case GState.Playing:
 					status = "A match is in progress (Playing)!";
@@ -2726,6 +2750,7 @@ namespace PRoConEvents
 			{
 				PlayerKickQueue.Clear();
 			}
+			JoinQueue.Clear();
 			FreshZombie.Clear();
 			PatientZeroes.Clear();
 			Lottery.Clear();
