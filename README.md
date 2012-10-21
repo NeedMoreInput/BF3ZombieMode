@@ -35,6 +35,8 @@ BF3 Zombie Mode
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
+<p><b>Temp Ban Instead Of Kick</b>: <i>On/Off</i>, default is <i>Off</i>. If <i>On</i>, a rules violation results in a temporary ban for 1 hour. If <i>Off</i>, a rules violation results in a kick. In both cases, the punishment happens after <b>Warns Before Kick For Rules Violations</b> warnings have been issued to the violator.</p>
+
 <p><b>Votes Needed To Kick</b>: Number of votes needed to kick a player with the <b>!zombie votekick</b> command or kill a player with the <b>!zombie votekill</b> command. The default value is <i>3</i>.</p>
 
 <p><b>Debug Level</b>: A number that represents the amount of debug logging  that is sent to the plugin.log file in PRoCon. The higher the number, the more spam is logged. The default value is <i>2</i>. Note: if you have a problem using the plugin, set your <b>Debug Level</b> to <i>5</i> and save the plugin.log for posting to phogue.net.</p>
