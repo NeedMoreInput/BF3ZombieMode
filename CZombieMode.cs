@@ -399,17 +399,17 @@ namespace PRoConEvents
 			DebugWrite("OnPlayerKickedByAdmin: " + SoldierName + ", reason: " + reason, 1);
 
 			KillTracker.RemovePlayer(SoldierName);
-
-			for(int i = 0; i < PlayerKickQueue.Count;i++)
+			
+			lock (PlayerKickQueue)
 			{
-				CPlayerInfo Player = PlayerList[i];
-				if (Player.SoldierName.Equals(SoldierName))
+				if (PlayerKickQueue.Contains(SoldierName))
 				{
-					PlayerKickQueue.RemoveAt(i);
+					PlayerKickQueue.Remove(SoldierName);
 				}
 			}
-		}
 
+		}
+		
 		public override void OnPlayerJoin(string SoldierName)
 		{
 			// Comes before OnPlayerAuthenticated
@@ -445,46 +445,13 @@ namespace PRoConEvents
 
 			base.OnPlayerAuthenticated(SoldierName, guid);
 			
+			/*
+			Add name to the kick queue. We can't kick this player until
+			the server has registered his name, which happens after
+			authenticate but before team changing or spawning.
+			*/
+			
 			PlayerKickQueue.Add(SoldierName);
-			
-			String msg = "Thread (";
-
-			ThreadStart kickPlayer = delegate
-			{
-				try
-				{
-					int maxTries = 0;
-					while (maxTries++ < 12)
-					{
-						if (!PlayerKickQueue.Contains(SoldierName))
-							break;
-
-						KickPlayer(SoldierName, "Zombie Mode max players of " + MaxPlayers + " exceeded, try later"); // $$$ - custom message
-						
-						DebugWrite("OnPlayerAuthenticated: trying to kick " + SoldierName, 5);
-						
-						Sleep(20); // Need time to get kick event
-					}
-				}
-				catch (System.Exception e)
-				{
-					ConsoleException("kickPlayer: " + e.ToString());
-				}
-				finally
-				{
-					DebugWrite("OnPlayerAuthenticated: " + msg + " finished", 4);
-				}
-			};
-
-			Thread t = new Thread(kickPlayer);
-			
-			msg = msg + "kickPlayer" + ")";
-
-			DebugWrite("OnPlayerAuthenticated: " + msg + " starting", 4);
-			
-			t.Start();
-			
-			Thread.Sleep(1);
 		}
 		
 		public override void OnPlayerKilled(Kill info)
@@ -667,7 +634,7 @@ namespace PRoConEvents
 					
 			if (ZombieModeEnabled == false)
 				return;
-
+			
 			if (Players.Count > 0) DebugWrite("OnListPlayers: " + Players.Count + " players", 6);
 			if (OldGameState != GameState) DebugWrite("OnListPlayers: GameState = " + GameState, 3);
 			OldGameState = GameState;
@@ -1052,6 +1019,20 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 				
+			// Kick any over max players
+			bool KickIt = false;
+			lock (PlayerKickQueue)
+			{
+				KickIt = PlayerKickQueue.Contains(soldierName);
+			}
+			
+			if (KickIt)
+			{
+				DebugWrite("OnPlayerTeamChange: Over max with " + soldierName, 5);
+				ScheduleKick(soldierName, "Zombie Mode max players of " + MaxPlayers + " exceeded, try later"); // $$$ - custom message
+				return;
+			}
+				
 			// Update spawn time to prevent early idle timeout
 			
 			PlayerState.UpdateSpawnTime(soldierName);
@@ -1229,6 +1210,21 @@ namespace PRoConEvents
 				GameState = GState.Idle;
 				return;
 			}
+
+			// Kick any over max players
+			bool KickIt = false;
+			lock (PlayerKickQueue)
+			{
+				KickIt = PlayerKickQueue.Contains(soldierName);
+			}
+			
+			if (KickIt)
+			{
+				DebugWrite("OnPlayerSpawned: Over max with " + soldierName, 5);
+				ScheduleKick(soldierName, "Zombie Mode max players of " + MaxPlayers + " exceeded, try later"); // $$$ - custom message
+				return;
+			}
+			
 			
 			String WhichTeam = (GameState == GState.Playing) ? "UNKNOWN" : GameState.ToString();
 			
@@ -1402,6 +1398,16 @@ namespace PRoConEvents
 
 			DebugWrite("OnPlayerLeft: " + playerInfo.SoldierName, 4);
 			
+			KillTracker.RemovePlayer(playerInfo.SoldierName);
+			
+			lock (PlayerKickQueue)
+			{
+				if (PlayerKickQueue.Contains(playerInfo.SoldierName))
+				{
+					PlayerKickQueue.Remove(playerInfo.SoldierName);
+				}
+			}
+
 			RequestPlayersList();
 		}
 
@@ -1842,6 +1848,40 @@ namespace PRoConEvents
 			ExecuteCommand("procon.protected.send", "admin.kickPlayer", PlayerName, Reason);
 		}
 
+		private void ScheduleKick(string PlayerName, string Reason)
+		{
+			ThreadStart kickSchedule = delegate
+			{
+				try
+				{
+					int maxTries = 0;
+					while (maxTries++ < 3)
+					{
+						if (!PlayerKickQueue.Contains(PlayerName))
+							break;
+
+						KickPlayer(PlayerName, Reason); // $$$ - custom message
+						
+						DebugWrite("ScheduleKick: trying to kick " + PlayerName, 5);
+						
+						Sleep(5); // Need time to get kick event
+					}
+				}
+				catch (System.Exception e)
+				{
+					ConsoleException("kickSchedule: " + e.ToString());
+				}
+			};
+			
+			DebugWrite("^b^8ScheduleKick:^0^n " + PlayerName + " for: " + Reason, 1);
+			
+			Thread t = new Thread(kickSchedule);
+			
+			t.Start();
+			
+			Thread.Sleep(1);
+		}
+		
 		private bool CheckIdle(List<CPlayerInfo> Players)
 		{
 			bool KickedSomeone = false;
@@ -1934,60 +1974,6 @@ namespace PRoConEvents
 			}
 		}
 
-		private void MakeHumanList(List<String> Humans)
-		{
-			if (Humans.Count == 0) return;
-			
-			ThreadStart makeHumanThread = delegate
-			{
-				try
-				{
-					foreach (String Human in Humans)
-					{
-						DebugWrite("MakeHumanList: " + Human, 5);
-
-						Thread.Sleep(100);
-
-						// Kill player requires a delay to work correctly
-
-						ExecuteCommand("procon.protected.send", "admin.killPlayer", Human);
-
-						Thread.Sleep(200);
-
-						// Now do the move
-
-						DebugWrite("MakeHumanList: Executing move of player " + Human + " to 1 now!", 5);
-
-						ExecuteCommand("procon.protected.send", "admin.movePlayer", Human, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
-
-						Thread.Sleep(300);
-						
-						lock (TeamHuman)
-						{
-							if (TeamZombie.Contains(Human)) TeamZombie.Remove(Human);
-							if (!TeamHuman.Contains(Human)) TeamHuman.Add(Human);
-						}
-					}
-					
-					// Now update TeamHuman & TeamZombie
-					RequestPlayersList();
-					
-				}
-				catch (Exception e)
-				{
-					ConsoleException("makeHumanThread: " + e.ToString());
-				}
-			};
-			
-			Thread t = new Thread(makeHumanThread);
-
-			t.Start();
-			
-			Thread.Sleep(2);
-			
-			DebugWrite("MakeHumanList " + Humans.Count + " to team 1", 3);
-		}
-		
 		private void ForceMove(string PlayerName, string TeamId, int DelaySecs)
 		{
 			ThreadStart forceMove = delegate
@@ -2069,9 +2055,7 @@ namespace PRoConEvents
 				{
 					Sleep(5); // allow time to update player list
 					
-					// First, kill all the former zombies to prepare for team switches
-					
-					List<String> tmp = new List<String>();
+					// Move all the zombies to the human team
 					
 					List<String> ZombieCopy = new List<String>();
 					
@@ -2083,19 +2067,34 @@ namespace PRoConEvents
 						TotalNum = TeamHuman.Count + TeamZombie.Count;
 					}
 					
-					foreach (String z in ZombieCopy)
-					{
-						// We are managing the delay manually, so don't use KillPlayerAfterDelay
-						ExecuteCommand("procon.protected.send", "admin.killPlayer", z);
-						tmp.Add(z);
-						Thread.Sleep(100);
-					}
-
-
-					// Then, move them to human team
-					// We can't use TeamZombie here, because MakeHumanList modifies it
+					// Move them to human team
+					// We can't use MakeHuman here, because we are in a thread
+					// We can't use TeamZombie here, because we are modifying it
 					
-					MakeHumanList(tmp);
+					foreach (String Mover in ZombieCopy)
+					{
+
+						Thread.Sleep(30);
+
+						// Kill player requires a delay to work correctly
+
+						ExecuteCommand("procon.protected.send", "admin.killPlayer", Mover);
+
+						Thread.Sleep(30);
+
+						// Now do the move
+
+						DebugWrite("makeTeams: Executing move of player " + Mover + " to 1 now!", 5);
+
+						ExecuteCommand("procon.protected.send", "admin.movePlayer", Mover, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
+						
+						lock (TeamHuman)
+						{
+							if (TeamZombie.Contains(Mover)) TeamZombie.Remove(Mover);
+							if (!TeamHuman.Contains(Mover)) TeamHuman.Add(Mover);
+						}
+
+					}
 					
 					// Fill the lottery pool for selecting patient zero
 					
@@ -2196,8 +2195,6 @@ namespace PRoConEvents
 			RequestPlayersList();
 			
 			// Tell everyone to hold on tight
-			
-			// TellAll("*** PREPARE TO BE MOVED, new match starting, same map level!"); // $$$ - custom message
 			
 			Thread t = new Thread(makeTeams);
 
@@ -2667,6 +2664,8 @@ namespace PRoConEvents
 				
 				int KickVotes = PlayerState.GetKickVotes(SoldierName);
 				if (KickVotes > 0) TellPlayer("You have " + KickVotes + " of " + VotesNeededToKick + " KICK votes against you!", SoldierName, false); // $$$ - custom message
+				
+				TellPlayer("Your idle time is " + PlayerState.GetLastSpawnTime(SoldierName).ToString("F0") + " seconds", SoldierName, false); // $$$ - custom message
 			}
 		}
 
@@ -2677,6 +2676,10 @@ namespace PRoConEvents
 			{
 				TeamHuman.Clear();
 				TeamZombie.Clear();
+			}
+			lock (PlayerKickQueue)
+			{
+				PlayerKickQueue.Clear();
 			}
 			FreshZombie.Clear();
 			PatientZeroes.Clear();
