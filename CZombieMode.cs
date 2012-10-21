@@ -666,15 +666,47 @@ namespace PRoConEvents
 			foreach (CPlayerInfo Player in Players)
 			{
 				KillTracker.AddPlayer(Player.SoldierName.ToString());
+
+				// An unknown player?
+				if (!TeamHuman.Contains(Player.SoldierName) && !TeamZombie.Contains(Player.SoldierName))
+				{
+					// Don't add new joiners
+					if (PlayerState.GetWelcomeCount(Player.SoldierName) == 0 || PlayerState.GetSpawnCount(Player.SoldierName) == 0)
+					{
+						DebugWrite("OnListPlayers: ignoring new joiner " + Player.SoldierName + " of team " + Player.TeamID, 5);
+						continue;
+					}
+
+					// Don't add players on kick list
+					lock (PlayerKickQueue)
+					{
+						if (PlayerKickQueue.Contains(Player.SoldierName))
+						{
+							DebugWrite("OnListPlayers: ignoring " + Player.SoldierName + " of team " + Player.TeamID + ", scheduled to be kicked", 5);
+							continue;
+						}
+					}
+					
+					// Otherwise add to census
+					DebugWrite("OnListPlayers: new player " + Player.SoldierName + " of team " + Player.TeamID, 5);
+				}
+					
 				// Team tracking
-				if (Player.TeamID == 1) {
+				if (Player.TeamID == 1) 
+				{
 					HumanCensus.Add(Player.SoldierName);
 					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as human (" + HumanCensus.Count + ")", 6);
 				}
-				if (Player.TeamID == 2) {
+				else if (Player.TeamID == 2) 
+				{
+					// Othewise, add
 					ZombieCensus.Add(Player.SoldierName);
 					DebugWrite("OnListPlayers: counted " + Player.SoldierName + " as zombie (" + ZombieCensus.Count + ")", 6);
-				}					
+				}
+				else
+				{
+					DebugWrite("OnListPlayers: unknown team " + Player.TeamID + " for player " + Player.SoldierName, 5);
+				}
 			}
 			
 			bool SomeoneMoved = false;
@@ -682,6 +714,7 @@ namespace PRoConEvents
 			lock (TeamHuman)
 			{
 				if (Players.Count > 0) DebugWrite("OnListPlayers: human count " + TeamHuman.Count + " vs " + HumanCensus.Count + ", zombie count " + TeamZombie.Count + " vs " + ZombieCensus.Count, 6);
+				
 				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
 				
@@ -746,7 +779,7 @@ namespace PRoConEvents
 			
 			if (PlayerName == "Server")
 			{
-				DebugWrite("-- CHAT: " + CleanMessage, 5);
+				DebugWrite("------ CHAT: " + CleanMessage, 5);
 				return;
 			}
 
@@ -2699,8 +2732,6 @@ namespace PRoConEvents
 				
 				int KickVotes = PlayerState.GetKickVotes(SoldierName);
 				if (KickVotes > 0) TellPlayer("You have " + KickVotes + " of " + VotesNeededToKick + " KICK votes against you!", SoldierName, false); // $$$ - custom message
-				
-				TellPlayer("Your idle time is " + PlayerState.GetLastSpawnTime(SoldierName).ToString("F0") + " seconds", SoldierName, false); // $$$ - custom message
 			}
 		}
 
