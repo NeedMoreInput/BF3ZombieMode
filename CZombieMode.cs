@@ -666,30 +666,6 @@ namespace PRoConEvents
 			foreach (CPlayerInfo Player in Players)
 			{
 				KillTracker.AddPlayer(Player.SoldierName.ToString());
-
-				// An unknown player?
-				if (!TeamHuman.Contains(Player.SoldierName) && !TeamZombie.Contains(Player.SoldierName))
-				{
-					// Don't add new joiners
-					if (PlayerState.GetWelcomeCount(Player.SoldierName) == 0 || PlayerState.GetSpawnCount(Player.SoldierName) == 0)
-					{
-						DebugWrite("OnListPlayers: ignoring new joiner " + Player.SoldierName + " of team " + Player.TeamID, 5);
-						continue;
-					}
-
-					// Don't add players on kick list
-					lock (PlayerKickQueue)
-					{
-						if (PlayerKickQueue.Contains(Player.SoldierName))
-						{
-							DebugWrite("OnListPlayers: ignoring " + Player.SoldierName + " of team " + Player.TeamID + ", scheduled to be kicked", 5);
-							continue;
-						}
-					}
-					
-					// Otherwise add to census
-					DebugWrite("OnListPlayers: new player " + Player.SoldierName + " of team " + Player.TeamID, 5);
-				}
 					
 				// Team tracking
 				if (Player.TeamID == 1) 
@@ -709,6 +685,8 @@ namespace PRoConEvents
 				}
 			}
 			
+			// Check for differences
+			
 			bool SomeoneMoved = false;
 			
 			lock (TeamHuman)
@@ -717,40 +695,41 @@ namespace PRoConEvents
 				
 				SomeoneMoved = (TeamHuman.Count != HumanCensus.Count);
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
-				
-				if (SomeoneMoved)
-				{
-					TeamHuman.Clear();
-					TeamHuman.AddRange(HumanCensus);
-					TeamZombie.Clear();
-					TeamZombie.AddRange(ZombieCensus);
-				}
 			}
 			
+			if (GameState != GState.Idle && (HumanCensus.Count+ZombieCensus.Count) == 0)
+			{
+				Reset();
+				return;
+			}
+
 			if (GameState == GState.Playing)
 			{
-				if (SomeoneMoved) DebugWrite("OnListPlayers: some players went missing, TeamHuman & TeamZombie updated", 5);
-				CheckVictoryConditions();
-			}		
-
-			if (GameState == GState.BetweenRounds)
-			{
-				// Between rounds, force update
-				lock (TeamHuman)
+				if (SomeoneMoved)
 				{
-					if (!SomeoneMoved)
+					DebugWrite("OnListPlayers: some players went missing, checking victory conditions", 5);
+					CheckVictoryConditions();
+				}
+			}
+			else if (GameState == GState.BetweenRounds)
+			{
+				KnownPlayerCount = HumanCensus.Count + ZombieCensus.Count;
+			}
+			else if (GameState == GState.Idle || GameState == GState.Waiting)
+			{
+				// force update when not playing a match
+				if (SomeoneMoved)
+				{
+					DebugWrite("OnListPlayers: some players went missing, forcing update", 5);
+
+					lock (TeamHuman)
 					{
 						TeamHuman.Clear();
 						TeamHuman.AddRange(HumanCensus);
 						TeamZombie.Clear();
 						TeamZombie.AddRange(ZombieCensus);
 					}
-					KnownPlayerCount = TeamZombie.Count + TeamHuman.Count;
 				}
-			}
-			else if (GameState != GState.Idle && (HumanCensus.Count+ZombieCensus.Count) == 0)
-			{
-				Reset();
 			}
 		}
 
