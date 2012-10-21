@@ -746,7 +746,7 @@ namespace PRoConEvents
 			
 			if (PlayerName == "Server")
 			{
-				DebugWrite("HandleChat: from Server? " + CleanMessage, 6);
+				DebugWrite("-- CHAT: " + CleanMessage, 5);
 				return;
 			}
 
@@ -1113,19 +1113,23 @@ namespace PRoConEvents
 					if (teamId != ((NewPlayersJoinHumans) ? 1 : 2))
 					{
 						string Which = (NewPlayersJoinHumans) ? HUMAN_TEAM : ZOMBIE_TEAM;
-						TellPlayer("You are a new player, sending you to the other team ...", soldierName);
 						
 						DebugWrite("OnPlayerTeamChange: switching new player " + soldierName + " to team " + Which, 3);
 						
-						ForceMove(soldierName, Which, AnnounceDisplayLength);
+						ForceMove(soldierName, Which);
 						
-						if (NewPlayersJoinHumans)
+						lock (TeamHuman)
 						{
-							if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
-						}
-						else
-						{
-							if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+							if (NewPlayersJoinHumans)
+							{
+								if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+								if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
+							}
+							else
+							{
+								if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+								if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+							}
 						}
 						
 					}
@@ -1475,7 +1479,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.9.0";
+			return "0.1.10.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1869,6 +1873,12 @@ namespace PRoConEvents
 			ExecuteCommand("procon.protected.send", "banList.add", "name", PlayerName, "seconds", TempBanSeconds.ToString(), Reason + " (Temporary/60)");
 
 			ExecuteCommand("procon.protected.send", "banList.save");
+
+			ExecuteCommand("procon.protected.send", "banList.list");
+
+			ExecuteCommand("procon.protected.send", "banList.list 100");
+
+			ExecuteCommand("procon.protected.send", "banList.list 200");
 
 			KickPlayer(PlayerName, Reason);
 		}
