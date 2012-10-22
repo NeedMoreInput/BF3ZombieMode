@@ -2054,6 +2054,8 @@ namespace PRoConEvents
 				//XXX if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
 				//XXX if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
 			}
+
+			ImmediatePlayersList();
 		}
 
 		private void ForceMove(string PlayerName, string TeamId, int DelaySecs)
