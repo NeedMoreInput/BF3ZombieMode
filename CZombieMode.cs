@@ -562,8 +562,27 @@ namespace PRoConEvents
 				else if (TempBanInsteadOfKick)
 				{
 					DebugWrite("OnPlayerKilled: ^b^8TEMP BAN " + KillerName, 2);
+
+					String unit = "seconds";
+					double dur = TempBanSeconds;
+					if (TempBanSeconds > 60 && TempBanSeconds < (2*60))
+					{
+						unit = "minutes";
+						dur = dur / 60.0;
+					}
+					else if (TempBanSeconds < (24*60*60))
+					{
+						unit = "hours";
+						dur = dur / (60.0 * 60.0);
+					}
+					else if (TempBanSeconds >= (24*60*60))
+					{
+						unit = "days";
+						dur = dur / (24.0 * 60.0 * 60.0);
+					}
+
 					
-					TellAll("::::: Banning " + KillerName + " for 1 hour! :::::"); // $$$ - custom message
+					TellAll("::::: Banning " + KillerName + " for " + dur.ToString("F0") +  "  " + unit + "! :::::"); // $$$ - custom message
 					
 					TempBanPlayer(KillerName, "ZOMBIE RULE VIOLATION: bad weapon"); // $$$  - custom message
 				}
