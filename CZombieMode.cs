@@ -415,7 +415,8 @@ namespace PRoConEvents
 			}
 			
 			RemoveJoinQueue(SoldierName);
-
+			
+			RequestPlayersList();
 		}
 		
 		public override void OnPlayerJoin(string SoldierName)
@@ -1105,7 +1106,10 @@ namespace PRoConEvents
 			}
 
 			if (GameState == GState.Idle || GameState == GState.Waiting || GameState == GState.CountingDown)
+			{
+				RequestPlayersList();
 				return;
+			}
 			
 			string team = (wasHuman) ? "HUMAN" : "JOINING";
 			team = (wasZombie) ? "ZOMBIE" : "JOINING";
@@ -1125,8 +1129,6 @@ namespace PRoConEvents
 						//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
 						//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
 					}
-					RequestPlayersList();
-
 				} 
 				else if (teamId == 2 && wasHuman) // to zombies
 				{
@@ -1166,9 +1168,7 @@ namespace PRoConEvents
 								//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
 								//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
 							}
-						}
-						RequestPlayersList();
-						
+						}						
 					}
 				}
 				
@@ -1521,7 +1521,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.11.0";
+			return "0.1.12.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1989,6 +1989,11 @@ namespace PRoConEvents
 
 		#region TeamMethods
 
+		private void ImmediatePlayersList()
+		{
+			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
+		}
+
 		private void RequestPlayersList()
 		{
 			lock (LastRequestPlayersList)
@@ -2002,8 +2007,7 @@ namespace PRoConEvents
 				LastRequestPlayersList.TimeVal = DateTime.Now;
 			}
 			
-			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
-
+			ImmediatePlayersList();
 		}
 
 		public void Infect(string Carrier, string Victim)
@@ -2050,7 +2054,6 @@ namespace PRoConEvents
 				//XXX if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
 				//XXX if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
 			}
-			RequestPlayersList();
 		}
 
 		private void ForceMove(string PlayerName, string TeamId, int DelaySecs)
@@ -2120,7 +2123,6 @@ namespace PRoConEvents
 				//XXX if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
 				//XXX if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);	
 			}
-			RequestPlayersList();
 			
 			FreshZombie.Add(PlayerName);
 		}
@@ -2170,8 +2172,8 @@ namespace PRoConEvents
 						
 						lock (TeamHuman)
 						{
-							if (TeamZombie.Contains(Mover)) TeamZombie.Remove(Mover);
-							if (!TeamHuman.Contains(Mover)) TeamHuman.Add(Mover);
+							//XXX if (TeamZombie.Contains(Mover)) TeamZombie.Remove(Mover);
+							//XXX if (!TeamHuman.Contains(Mover)) TeamHuman.Add(Mover);
 						}
 
 					}
@@ -2267,10 +2269,11 @@ namespace PRoConEvents
 				finally
 				{
 					GameState = FinalState;
+					ImmediatePlayersList();
 				}
 			};
 			
-			// Update the player lists
+			// Update the players list
 			
 			RequestPlayersList();
 			
