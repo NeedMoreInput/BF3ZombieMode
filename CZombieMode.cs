@@ -1991,6 +1991,11 @@ namespace PRoConEvents
 
 		private void ImmediatePlayersList()
 		{
+			lock (LastRequestPlayersList)
+			{
+				LastRequestPlayersList.TimeVal = DateTime.Now;
+			}
+			
 			ExecuteCommand("procon.protected.send", "admin.listPlayers", "all");
 		}
 
@@ -2003,8 +2008,6 @@ namespace PRoConEvents
 				// Don't request list more frequently than every 2 seconds
 
 				if (since.TotalSeconds < 2) return;
-
-				LastRequestPlayersList.TimeVal = DateTime.Now;
 			}
 			
 			ImmediatePlayersList();
