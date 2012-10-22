@@ -658,7 +658,8 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 			
-			if (Players.Count + JoinQueue.Count > 0) DebugWrite("OnListPlayers: " + (Players.Count + JoinQueue.Count) + " players", 5);
+			if (Players.Count + JoinQueue.Count > 0 && GameState != GState.Idle) DebugWrite("OnListPlayers: " + Players.Count + " players, " + JoinQueue.Count + " joining", 5);
+			
 			if (OldGameState != GameState) DebugWrite("OnListPlayers: GameState = " + GameState, 3);
 			OldGameState = GameState;
 				
