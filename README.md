@@ -29,9 +29,9 @@ BF3 Zombie Mode
 
 <p><b>Warning Display Length</b>: Time in seconds that warnings are shown as yells, default is <i>15</i>.</p>
 
-<p><b>Human Max Idle Seconds</b>: Time in seconds that a human is allowed to be idle (no spawns and no kills/deaths) before being kicked. This idle time applies only when a match is in progress. Since zombies can't win unless they can kill humans, the match can stall if a human remains idle and never spawns. The idle time for humans should therefore be relatively short. The default value is <i>120</i> seconds, or 2 minutes.</p>
+<p><b>Human Max Idle Seconds</b>: Time in seconds that a human is allowed to be idle (no spawns and no kills/deaths) before being kicked. This idle time applies only when a match is in progress. Since zombies can't win unless they can kill humans, the match can stall if a human remains idle and never spawns. The idle time for humans should therefore be relatively short. The default value is <i>180</i> seconds, or 3 minutes.</p>
 
-<p><b>Max Idle Seconds</b>: Time in seconds that any player is allowed to be idle (no spawns and no kills/deaths) before being kicked. This idle time applies as long as Zombie Mode is enabled (On). The default value is <i>600</i> seconds, or 10 minutes.</p>
+<p><b>Max Idle Seconds</b>: Time in seconds that any player is allowed to be idle (no spawns and no kills/deaths) before being kicked, regardless of whether a match is running or not, or whether spawned or not. This idle time applies as long as Zombie Mode is enabled (On). The default value is <i>600</i> seconds, or 10 minutes.</p>
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
@@ -111,7 +111,7 @@ BF3 Zombie Mode
 
 <p><b>!zombie help</b>: Shows list of commands available to the player.</p>
 
-<p><b>!zombie idle</b>: Shows how long the player typing the command has been idle and whether or not the player is spawned into the round.</p>
+<p><b>!zombie idle</b>: Shows how long the player typing the command has been idle (no spawns and no deaths/kills) and whether or not the player is spawned into the round.</p>
 
 <p><b>!zombie rules</b>: Scrolls all of the Zombie Mode rules to the player.</p>
 

@@ -66,7 +66,7 @@ namespace PRoConEvents
 		
 		private bool RematchEnabled = true; // true: round does not end, false: round ends
 		
-		private int HumanMaxIdleSeconds = 2*60; // aggressively kick idle humans
+		private int HumanMaxIdleSeconds = 3*60; // aggressively kick idle humans
 		
 		private int MaxIdleSeconds = 10*60; // maximum idle for any player
 		
@@ -715,6 +715,10 @@ namespace PRoConEvents
 				if (SomeoneMoved)
 				{
 					DebugWrite("OnListPlayers: some players went missing, checking victory conditions", 5);
+					TeamHuman.Clear();
+					TeamZombie.Clear();
+					TeamHuman.AddRange(HumanCensus);
+					TeamZombie.AddRange(ZombieCensus);
 					CheckVictoryConditions();
 				}
 			}
@@ -1957,7 +1961,7 @@ namespace PRoConEvents
 						MaxTime = HumanMaxIdleSeconds;
 					}
 				}
-				if (PlayerState.IdleTimeExceedsMax(Name, MaxTime))
+				if (PlayerState.IdleTimeExceedsMax(Name, MaxTime, MaxIdleSeconds))
 				{
 					DebugWrite("CheckIdle: " + Name + " ^8^bexceeded idle time of " + MaxTime + " seconds, KICKING ...^n^0", 2);
 					KickPlayer(Name, "Idle for more than " + MaxTime + " seconds");
@@ -3038,13 +3042,13 @@ namespace PRoConEvents
 			AllPlayerStates[soldierName].LastSpawnTime = DateTime.Now;			
 		}
 		
-		public bool IdleTimeExceedsMax(String soldierName, double maxSecs)
+		public bool IdleTimeExceedsMax(String soldierName, double maxSecs, double highMax)
 		{
 			if (!AllPlayerStates.ContainsKey(soldierName)) return false;
 			APlayerState ps = AllPlayerStates[soldierName];
-			if (ps.IsSpawned == true) return false;
+			if (maxSecs != highMax && ps.IsSpawned == true) return false;
 			// Fix for idle kicks before someone spawns the first time!
-			if (maxSecs < 300 && ps.SpawnCount < 2) return false;
+			if (maxSecs != highMax && ps.SpawnCount == 0) return false;
 			DateTime last = ps.LastSpawnTime;
 			TimeSpan time = DateTime.Now - last;
 			return(time.TotalSeconds > maxSecs);
@@ -3174,9 +3178,9 @@ namespace PRoConEvents
 
 <p><b>Warning Display Length</b>: Time in seconds that warnings are shown as yells, default is <i>15</i>.</p>
 
-<p><b>Human Max Idle Seconds</b>: Time in seconds that a human is allowed to be idle (no spawns and no kills/deaths) before being kicked. This idle time applies only when a match is in progress. Since zombies can't win unless they can kill humans, the match can stall if a human remains idle and never spawns. The idle time for humans should therefore be relatively short. The default value is <i>120</i> seconds, or 2 minutes.</p>
+<p><b>Human Max Idle Seconds</b>: Time in seconds that a human is allowed to be idle (no spawns and no kills/deaths) before being kicked. This idle time applies only when a match is in progress. Since zombies can't win unless they can kill humans, the match can stall if a human remains idle and never spawns. The idle time for humans should therefore be relatively short. The default value is <i>180</i> seconds, or 3 minutes.</p>
 
-<p><b>Max Idle Seconds</b>: Time in seconds that any player is allowed to be idle (no spawns and no kills/deaths) before being kicked. This idle time applies as long as Zombie Mode is enabled (On). The default value is <i>600</i> seconds, or 10 minutes.</p>
+<p><b>Max Idle Seconds</b>: Time in seconds that any player is allowed to be idle (no spawns and no kills/deaths) before being kicked, regardless of whether a match is running or not, or whether spawned or not. This idle time applies as long as Zombie Mode is enabled (On). The default value is <i>600</i> seconds, or 10 minutes.</p>
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
@@ -3256,7 +3260,7 @@ namespace PRoConEvents
 
 <p><b>!zombie help</b>: Shows list of commands available to the player.</p>
 
-<p><b>!zombie idle</b>: Shows how long the player typing the command has been idle and whether or not the player is spawned into the round.</p>
+<p><b>!zombie idle</b>: Shows how long the player typing the command has been idle (no spawns and no deaths/kills) and whether or not the player is spawned into the round.</p>
 
 <p><b>!zombie rules</b>: Scrolls all of the Zombie Mode rules to the player.</p>
 
