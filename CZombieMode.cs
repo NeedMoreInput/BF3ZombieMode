@@ -474,7 +474,7 @@ namespace PRoConEvents
 				PlayerState.UpdateSpawnTime(info.Victim.SoldierName);
 				PlayerState.SetSpawned(info.Victim.SoldierName, false);
 				// Since we can't log vars values in plugin.log, at least log to console.log
-				if (DebugLevel > 3) ExecuteCommand("procon.protected.send", "vars.bulletDamage");
+				if (DebugLevel > 5) ExecuteCommand("procon.protected.send", "vars.bulletDamage");
 			}
 
 			if (GameState != GState.Playing)
@@ -520,6 +520,8 @@ namespace PRoConEvents
 			{
 				InfectMessage = "*** No humans left!"; // $$$ - custom message
 			}
+			
+			RemainingHumans = TeamHuman.Count;
 
 			String Notice = WeaponName + " results in non-scoring accidental death, respawn and try again";  // $$$ - custom message
 
@@ -585,6 +587,7 @@ namespace PRoConEvents
 					DebugWrite("Suicide infected: " + VictimName, 3);
 					Infect("Suicide", VictimName);
 					TellAll(InfectMessage, false); // do not overwrite Infect yell
+					--RemainingHumans;
 				}
 				else
 				{
@@ -628,6 +631,7 @@ namespace PRoConEvents
 					{					
 						Infect(KillerName, VictimName);
 						TellAll(InfectMessage, false); // do not overwrite Infect yell
+						--RemainingHumans;
 					}
 				}
 				else
@@ -714,7 +718,7 @@ namespace PRoConEvents
 			{
 				if (SomeoneMoved)
 				{
-					DebugWrite("OnListPlayers: some players went missing, checking victory conditions", 5);
+					//DebugWrite("OnListPlayers: some players went missing, checking victory conditions", 5);
 					TeamHuman.Clear();
 					TeamZombie.Clear();
 					TeamHuman.AddRange(HumanCensus);
@@ -725,6 +729,10 @@ namespace PRoConEvents
 			else if (GameState == GState.BetweenRounds)
 			{
 				KnownPlayerCount = HumanCensus.Count + ZombieCensus.Count;
+				TeamHuman.Clear();
+				TeamZombie.Clear();
+				TeamHuman.AddRange(HumanCensus);
+				TeamZombie.AddRange(ZombieCensus);
 			}
 			else if (GameState == GState.Idle || GameState == GState.Waiting)
 			{
@@ -1113,9 +1121,10 @@ namespace PRoConEvents
 
 					lock (TeamHuman)
 					{
-						if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-						if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+						//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+						//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
 					}
+					RequestPlayersList();
 
 				} 
 				else if (teamId == 2 && wasHuman) // to zombies
@@ -1125,9 +1134,10 @@ namespace PRoConEvents
 
 					lock (TeamHuman)
 					{
-						if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-						if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+						//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+						//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
 					}
+					RequestPlayersList();
 				} 
 				else if (!wasHuman && !wasZombie && GameState == GState.Playing)
 				{
@@ -1147,15 +1157,16 @@ namespace PRoConEvents
 						{
 							if (NewPlayersJoinHumans)
 							{
-								if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
-								if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
+								//XXX if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+								//XXX if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
 							}
 							else
 							{
-								if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
-								if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
+								//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
+								//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
 							}
 						}
+						RequestPlayersList();
 						
 					}
 				}
@@ -1173,9 +1184,10 @@ namespace PRoConEvents
 					
 					lock (TeamHuman)
 					{
-						if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
-						if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
+						//XXX if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
+						//XXX if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
 					}
+					RequestPlayersList();
 				} 
 				else if (teamId == 2) // to zombies
 				{
@@ -1508,7 +1520,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.10.0";
+			return "0.1.11.0";
 		}
 
 		public string GetPluginAuthor()
@@ -2010,9 +2022,10 @@ namespace PRoConEvents
 			
 			lock (TeamHuman)
 			{
-				if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
-				if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
+				//XXX if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
+				//XXX if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
 			}
+			RequestPlayersList();
 		}
 
 		private void MakeHumanFast(string PlayerName)
@@ -2033,9 +2046,10 @@ namespace PRoConEvents
 
 			lock (TeamHuman)
 			{
-				if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
-				if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
+				//XXX if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
+				//XXX if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
 			}
+			RequestPlayersList();
 		}
 
 		private void ForceMove(string PlayerName, string TeamId, int DelaySecs)
@@ -2102,9 +2116,10 @@ namespace PRoConEvents
 			
 			lock (TeamHuman)
 			{
-				if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
-				if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);	
+				//XXX if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
+				//XXX if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);	
 			}
+			RequestPlayersList();
 			
 			FreshZombie.Add(PlayerName);
 		}
