@@ -35,7 +35,7 @@ BF3 Zombie Mode
 
 <p><b>Warns Before Kick For Rules Violations</b>: Number of warnings given before a player is kicked for violating the Zombie Mode rules, particularly for using a forbidden weapon type. The default value is <i>1</i>.</p>
 
-<p><b>Temp Ban Instead Of Kick</b>: <i>On/Off</i>, default is <i>Off</i>. If <i>On</i>, a rules violation results in a temporary ban for 1 hour. If <i>Off</i>, a rules violation results in a kick. In both cases, the punishment happens after <b>Warns Before Kick For Rules Violations</b> warnings have been issued to the violator.</p>
+<p><b>Temp Ban Instead Of Kick</b>: <i>On/Off</i>, default is <i>Off</i>. If <i>On</i>, a rules violation results in a temporary ban for <b>Temp Ban Seconds</b>. If <i>Off</i>, a rules violation results in a kick. In both cases, the punishment happens after <b>Warns Before Kick For Rules Violations</b> warnings have been issued to the violator.</p>
 
 <p><b>Temp Ban Seconds</b>: Time in seconds that a player is temporarily banned if <b>Temp Ban Instead Of Kick</b> is <i>On</i>. The default value is <i>3600</i> seconds, or 1 hour.</p>
 
