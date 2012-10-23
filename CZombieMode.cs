@@ -739,7 +739,7 @@ namespace PRoConEvents
 			{
 				if (SomeoneMoved)
 				{
-					//DebugWrite("OnListPlayers: some players went missing, checking victory conditions", 5);
+					DebugWrite("OnListPlayers: teams updated, checking victory conditions", 5);
 					TeamHuman.Clear();
 					TeamZombie.Clear();
 					TeamHuman.AddRange(HumanCensus);
@@ -749,6 +749,7 @@ namespace PRoConEvents
 			}
 			else if (GameState == GState.BetweenRounds)
 			{
+				DebugWrite("OnListPlayers: teams updated, between rounds", 5);
 				KnownPlayerCount = HumanCensus.Count + ZombieCensus.Count;
 				TeamHuman.Clear();
 				TeamZombie.Clear();
@@ -760,7 +761,7 @@ namespace PRoConEvents
 				// force update when not playing a match
 				if (SomeoneMoved)
 				{
-					DebugWrite("OnListPlayers: some players went missing, forcing update", 5);
+					DebugWrite("OnListPlayers: teams updated, not playing yet", 5);
 
 					lock (TeamHuman)
 					{
@@ -798,7 +799,7 @@ namespace PRoConEvents
 			
 			if (PlayerName == "Server")
 			{
-				DebugWrite("------ CHAT: " + CleanMessage, 5);
+				DebugWrite("------ CHAT: " + CleanMessage, 6);
 				return;
 			}
 
@@ -1130,11 +1131,13 @@ namespace PRoConEvents
 				return;
 			}
 			
+			// Otherwise BetweenRounds or NeedSpawn or Playing
+			
 			string team = (wasHuman) ? "HUMAN" : "JOINING";
 			team = (wasZombie) ? "ZOMBIE" : "JOINING";
 			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
 			
-			if (GameState != GState.BetweenRounds)
+			if (GameState == GState.Playing || GameState == GState.NeedSpawn)
 			{
 				if (teamId == 1 && wasZombie) // to humans
 				{
@@ -1142,26 +1145,15 @@ namespace PRoConEvents
 					TellPlayer("Don't switch to the human team! Sending you back to zombies!", soldierName); // $$$ - custom message
 
 					ForceMove(soldierName, ZOMBIE_TEAM, AnnounceDisplayLength);
-
-					lock (TeamHuman)
-					{
-						//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-						//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
-					}
 				} 
-				else if (teamId == 2 && wasHuman) // to zombies
+				else if (GameState == GState.Playing && teamId == 2 && wasHuman) // to zombies
 				{
 					// Switching to the zombie team is okay
 					FreshZombie.Add(soldierName);
 
-					lock (TeamHuman)
-					{
-						//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-						//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
-					}
 					RequestPlayersList();
 				} 
-				else if (!wasHuman && !wasZombie && GameState == GState.Playing)
+				else if (!wasHuman && !wasZombie)
 				{
 					// New player joining in the middle of the match
 					
@@ -1174,23 +1166,8 @@ namespace PRoConEvents
 						DebugWrite("OnPlayerTeamChange: switching new player " + soldierName + " to team " + Which, 3);
 						
 						ForceMove(soldierName, Which);
-						
-						lock (TeamHuman)
-						{
-							if (NewPlayersJoinHumans)
-							{
-								//XXX if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
-								//XXX if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
-							}
-							else
-							{
-								//XXX if (!TeamZombie.Contains(soldierName)) TeamZombie.Add(soldierName);
-								//XXX if (TeamHuman.Contains(soldierName)) TeamHuman.Remove(soldierName);
-							}
-						}						
 					}
 				}
-				
 			} else if (GameState == GState.BetweenRounds) { // server is swapping teams
 				
 				int ZombieCount = 0;
@@ -1202,11 +1179,6 @@ namespace PRoConEvents
 					// Add to the lottery if eligible
 					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
 					
-					lock (TeamHuman)
-					{
-						//XXX if (TeamZombie.Contains(soldierName)) TeamZombie.Remove(soldierName);
-						//XXX if (!TeamHuman.Contains(soldierName)) TeamHuman.Add(soldierName);
-					}
 					RequestPlayersList();
 				} 
 				else if (teamId == 2) // to zombies
@@ -1540,7 +1512,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.12.0";
+			return "0.1.13.0";
 		}
 
 		public string GetPluginAuthor()
@@ -2052,11 +2024,6 @@ namespace PRoConEvents
 
 			ForceMove(PlayerName, HUMAN_TEAM);
 			
-			lock (TeamHuman)
-			{
-				//XXX if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
-				//XXX if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
-			}
 			RequestPlayersList();
 		}
 
@@ -2075,12 +2042,6 @@ namespace PRoConEvents
 			*/
 			
 			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
-
-			lock (TeamHuman)
-			{
-				//XXX if (TeamZombie.Contains(PlayerName)) TeamZombie.Remove(PlayerName);
-				//XXX if (!TeamHuman.Contains(PlayerName)) TeamHuman.Add(PlayerName);
-			}
 
 			ImmediatePlayersList();
 		}
@@ -2147,12 +2108,6 @@ namespace PRoConEvents
 
 			ForceMove(PlayerName, ZOMBIE_TEAM);
 			
-			lock (TeamHuman)
-			{
-				//XXX if (TeamHuman.Contains(PlayerName)) TeamHuman.Remove(PlayerName);
-				//XXX if (!TeamZombie.Contains(PlayerName)) TeamZombie.Add(PlayerName);	
-			}
-			
 			FreshZombie.Add(PlayerName);
 		}
 
@@ -2199,12 +2154,6 @@ namespace PRoConEvents
 
 						ExecuteCommand("procon.protected.send", "admin.movePlayer", Mover, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
 						
-						lock (TeamHuman)
-						{
-							//XXX if (TeamZombie.Contains(Mover)) TeamZombie.Remove(Mover);
-							//XXX if (!TeamHuman.Contains(Mover)) TeamHuman.Add(Mover);
-						}
-
 					}
 					
 					// Fill the lottery pool for selecting patient zero
@@ -2275,10 +2224,6 @@ namespace PRoConEvents
 
 					DebugWrite("MakeTeams: lottery selected " + PatientZero + " as first zombie!", 2);
 
-					DebugWrite("MakeTeams: ready for another round with " +TotalNum + " players!", 2);
-					
-					TellAll("*** Spawn now, Zombie Mode is on! " + TotalNum + " players"); // $$$ - custom message
-					
 					// Reset state
 
 					Lottery.Clear();
@@ -2289,6 +2234,12 @@ namespace PRoConEvents
 					KillTracker.ResetPerMatch();
 
 					/* GameState is set to Playing in OnPlayerSpawned */
+					
+					Sleep(1);
+					
+					DebugWrite("MakeTeams: ready for another round with " +TotalNum + " players!", 2);
+					
+					TellAll("*** Spawn now, Zombie Mode is on! " + TotalNum + " players"); // $$$ - custom message
 					
 				} 
 				catch (Exception e)
@@ -2304,7 +2255,7 @@ namespace PRoConEvents
 			
 			// Update the players list
 			
-			RequestPlayersList();
+			ImmediatePlayersList();
 			
 			// Tell everyone to hold on tight
 			
