@@ -739,7 +739,7 @@ namespace PRoConEvents
 			{
 				if (SomeoneMoved)
 				{
-					DebugWrite("OnListPlayers: teams updated, checking victory conditions", 5);
+					DebugWrite("OnListPlayers: teams updated, checking victory conditions", 5); // async listPlayers version
 					TeamHuman.Clear();
 					TeamZombie.Clear();
 					TeamHuman.AddRange(HumanCensus);
