@@ -1106,8 +1106,6 @@ namespace PRoConEvents
 				return;
 			}
 			
-			// Otherwise BetweenRounds or NeedSpawn or Playing
-			
 			string team = (wasHuman) ? "HUMAN" : "JOINING";
 			team = (wasZombie) ? "ZOMBIE" : "JOINING";
 			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
@@ -1131,7 +1129,7 @@ namespace PRoConEvents
 
 					ForceMove(soldierName, ZOMBIE_TEAM, AnnounceDisplayLength);
 				} 
-				else if (GetState() == GState.Playing && teamId == 2 && wasHuman) // to zombies
+				else if (teamId == 2 && wasHuman) // to zombies
 				{
 					// Switching to the zombie team is okay
 					FreshZombie.Add(soldierName);
@@ -1153,6 +1151,12 @@ namespace PRoConEvents
 					}
 						
 					UpdateTeams(soldierName, ((NewPlayersJoinHumans) ? 1 : 2));
+				}
+				else
+				{
+					ConsoleError("OnPlayerTeamChange: Playing/NeedSpawn " + soldierName + " not in expected team state, forcing update!");
+
+					UpdateTeams(soldierName, teamId);
 				}
 			} else if (GetState() == GState.BetweenRounds) { // server is swapping teams
 				
@@ -1214,29 +1218,29 @@ namespace PRoConEvents
 					
 					SetState(GState.RoundStarting);
 				}
+				else // still switching between rounds
+				{
+					if (teamId == 1) // to humans
+					{
+						++ServerSwitchedCount;
+
+						// Add to the lottery if eligible
+						if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
+
+						UpdateTeams(soldierName, teamId);
+					} 
+					else if (teamId == 2) // to zombies
+					{
+						++ServerSwitchedCount;
+
+						// Switch back
+						MakeHumanFast(soldierName);
+					}
+				}
 				/*
 				GameState stays in BetweenRounds state because we don't know when the
 				actual round starts until a player spawns. See OnPlayerSpawned.
 				*/
-			}
-			else // still switching between rounds
-			{
-				if (teamId == 1) // to humans
-				{
-					++ServerSwitchedCount;
-					
-					// Add to the lottery if eligible
-					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
-					
-					UpdateTeams(soldierName, teamId);
-				} 
-				else if (teamId == 2) // to zombies
-				{
-					++ServerSwitchedCount;
-
-					// Switch back
-					MakeHumanFast(soldierName);
-				}
 			}
 			
 		}
