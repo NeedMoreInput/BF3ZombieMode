@@ -141,12 +141,16 @@ namespace PRoConEvents
 		
 		private SynchronizedNumbers LastRequestPlayersList = new SynchronizedNumbers();
 		
+		private SynchronizedNumbers StateLock = new SynchronizedNumbers();
+		
 		private enum GState { 
 			Idle,			// No players, no match in progress, or just reset
 			Waiting, 		// Waiting for minimum number of players to spawn
 			Playing, 		// Playing a match
 			CountingDown,	// Match over, counting down to next round/match
+			Moving,			// Counting down and moving players
 			BetweenRounds,	// Between map levels/rounds
+			RoundStarting,	// Finished moving between rounds
 			NeedSpawn		// Ready to play next match, waiting for spawn
 		};
 		
@@ -397,27 +401,6 @@ namespace PRoConEvents
 		#region EventHandlers
 
 		/** EVENT HANDLERS **/
-		public override void OnPlayerKickedByAdmin(string SoldierName, string reason) 
-		{
-			if (ZombieModeEnabled == false)
-				return;
-			
-			DebugWrite("OnPlayerKickedByAdmin: " + SoldierName + ", reason: " + reason, 1);
-
-			KillTracker.RemovePlayer(SoldierName);
-			
-			lock (PlayerKickQueue)
-			{
-				if (PlayerKickQueue.Contains(SoldierName))
-				{
-					PlayerKickQueue.Remove(SoldierName);
-				}
-			}
-			
-			RemoveJoinQueue(SoldierName);
-			
-			RequestPlayersList();
-		}
 		
 		public override void OnPlayerJoin(string SoldierName)
 		{
@@ -430,7 +413,7 @@ namespace PRoConEvents
 			}
 			else
 			{
-				GameState = GState.Idle;
+				SetState(GState.Idle);
 			}
 		}
 		
@@ -469,7 +452,7 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 
-			if (GameState != GState.Idle)
+			if (GetState() != GState.Idle)
 			{
 				PlayerState.UpdateSpawnTime(info.Killer.SoldierName);
 				PlayerState.UpdateSpawnTime(info.Victim.SoldierName);
@@ -478,7 +461,7 @@ namespace PRoConEvents
 				if (DebugLevel > 5) ExecuteCommand("procon.protected.send", "vars.bulletDamage");
 			}
 
-			if (GameState != GState.Playing)
+			if (GetState() != GState.Playing)
 				return;
 			
 			// Extract the short weapon name
@@ -678,10 +661,10 @@ namespace PRoConEvents
 			if (ZombieModeEnabled == false)
 				return;
 			
-			if (Players.Count + JoinQueue.Count > 0 && GameState != GState.Idle) DebugWrite("OnListPlayers: " + Players.Count + " players, " + JoinQueue.Count + " joining", 5);
+			if (Players.Count + JoinQueue.Count > 0 && GetState() != GState.Idle) DebugWrite("OnListPlayers: " + Players.Count + " players, " + JoinQueue.Count + " joining", 5);
 			
-			if (OldGameState != GameState) DebugWrite("OnListPlayers: GameState = " + GameState, 3);
-			OldGameState = GameState;
+			if (OldGameState != GetState()) DebugWrite("OnListPlayers: GameState = " + GetState(), 3);
+			OldGameState = GetState();
 				
 			if (CheckIdle(Players))
 			{
@@ -729,34 +712,26 @@ namespace PRoConEvents
 				SomeoneMoved |= (TeamZombie.Count != ZombieCensus.Count);
 			}
 			
-			if (GameState != GState.Idle && (HumanCensus.Count+ZombieCensus.Count) == 0)
+			if (GetState() != GState.Idle && (HumanCensus.Count+ZombieCensus.Count) == 0)
 			{
 				Reset();
 				return;
 			}
 
-			if (GameState == GState.Playing)
+			if (GetState() == GState.Playing)
 			{
 				if (SomeoneMoved)
 				{
-					DebugWrite("OnListPlayers: teams updated, checking victory conditions", 5); // async listPlayers version
-					TeamHuman.Clear();
-					TeamZombie.Clear();
-					TeamHuman.AddRange(HumanCensus);
-					TeamZombie.AddRange(ZombieCensus);
+					DebugWrite("OnListPlayers: playing, checking victory conditions", 5);
 					CheckVictoryConditions();
 				}
 			}
-			else if (GameState == GState.BetweenRounds)
+			else if (GetState() == GState.BetweenRounds)
 			{
-				DebugWrite("OnListPlayers: teams updated, between rounds", 5);
+				DebugWrite("OnListPlayers: between rounds", 5);
 				KnownPlayerCount = HumanCensus.Count + ZombieCensus.Count;
-				TeamHuman.Clear();
-				TeamZombie.Clear();
-				TeamHuman.AddRange(HumanCensus);
-				TeamZombie.AddRange(ZombieCensus);
 			}
-			else if (GameState == GState.Idle || GameState == GState.Waiting)
+			else if (GetState() == GState.Idle || GetState() == GState.Waiting || GetState() == GState.RoundStarting)
 			{
 				// force update when not playing a match
 				if (SomeoneMoved)
@@ -853,7 +828,7 @@ namespace PRoConEvents
 			switch (Command)
 			{
 				case "infect":
-					if (ZombieModeEnabled == false || GameState == GState.Idle || GameState == GState.Waiting)
+					if (ZombieModeEnabled == false || GetState() == GState.Idle || GetState() == GState.Waiting)
 						return;
 
 					if (!IsAdmin(PlayerName))
@@ -872,7 +847,7 @@ namespace PRoConEvents
 					Infect("Admin", Target); // Does TellAll
 					break;
 				case "heal":
-					if (ZombieModeEnabled == false || GameState == GState.Idle || GameState == GState.Waiting)
+					if (ZombieModeEnabled == false || GetState() == GState.Idle || GetState() == GState.Waiting)
 						return;
 
 					if (!IsAdmin(PlayerName))
@@ -950,7 +925,7 @@ namespace PRoConEvents
 					TellRules(PlayerName);
 					break;
 				case "warn":
-					if (ZombieModeEnabled == false || GameState == GState.Idle)
+					if (ZombieModeEnabled == false || GetState() == GState.Idle)
 						return;
 					if (MessagePieces.Count < 3) return;
 					string WarningMessage = String.Join(" ", MessagePieces.GetRange(2, MessagePieces.Count - 2).ToArray());
@@ -1004,7 +979,7 @@ namespace PRoConEvents
 					TellPlayer("Kicking " + Target, PlayerName, false);
 					break;
 				case "votekick":
-					if (ZombieModeEnabled == false || GameState == GState.Idle)
+					if (ZombieModeEnabled == false || GetState() == GState.Idle)
 						return;
 					if (MessagePieces.Count < 2) return;
 					Target = PlayerNameMatch(MessagePieces[1]);
@@ -1017,7 +992,7 @@ namespace PRoConEvents
 					VoteKick(PlayerName, Target);
 					break;
 				case "votekill":
-					if (ZombieModeEnabled == false || GameState == GState.Idle)
+					if (ZombieModeEnabled == false || GetState() == GState.Idle)
 						return;
 					if (MessagePieces.Count < 2) return;
 					Target = PlayerNameMatch(MessagePieces[1]);
@@ -1070,9 +1045,9 @@ namespace PRoConEvents
 		{
 			// This is just to test debug logging
 			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ....", 7);
-			DebugWrite("GameState = " + GameState, 6);
+			DebugWrite("GameState = " + GetState(), 6);
 			
-			if (GameState == GState.BetweenRounds)
+			if (GetState() == GState.BetweenRounds)
 			{
 				lock (TeamHuman)
 				{
@@ -1125,9 +1100,9 @@ namespace PRoConEvents
 				return;
 			}
 
-			if (GameState == GState.Idle || GameState == GState.Waiting || GameState == GState.CountingDown)
+			if (GetState() == GState.Idle || GetState() == GState.Waiting || GetState() == GState.CountingDown)
 			{
-				RequestPlayersList();
+				UpdateTeams(soldierName, teamId);
 				return;
 			}
 			
@@ -1136,8 +1111,18 @@ namespace PRoConEvents
 			string team = (wasHuman) ? "HUMAN" : "JOINING";
 			team = (wasZombie) ? "ZOMBIE" : "JOINING";
 			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
+
+
+			// Short-cut update states
 			
-			if (GameState == GState.Playing || GameState == GState.NeedSpawn)
+			if (GetState() == GState.Moving || GetState() == GState.RoundStarting)
+			{
+				DebugWrite("OnPlayerTeamChange: ^bUPDATING TEAMS^0", 3);
+				UpdateTeams(soldierName, teamId);
+				return;
+			}
+			
+			if (GetState() == GState.Playing || GetState() == GState.NeedSpawn)
 			{
 				if (teamId == 1 && wasZombie) // to humans
 				{
@@ -1146,12 +1131,11 @@ namespace PRoConEvents
 
 					ForceMove(soldierName, ZOMBIE_TEAM, AnnounceDisplayLength);
 				} 
-				else if (GameState == GState.Playing && teamId == 2 && wasHuman) // to zombies
+				else if (GetState() == GState.Playing && teamId == 2 && wasHuman) // to zombies
 				{
 					// Switching to the zombie team is okay
 					FreshZombie.Add(soldierName);
-
-					RequestPlayersList();
+					UpdateTeams(soldierName, teamId);
 				} 
 				else if (!wasHuman && !wasZombie)
 				{
@@ -1167,28 +1151,13 @@ namespace PRoConEvents
 						
 						ForceMove(soldierName, Which);
 					}
+						
+					UpdateTeams(soldierName, ((NewPlayersJoinHumans) ? 1 : 2));
 				}
-			} else if (GameState == GState.BetweenRounds) { // server is swapping teams
+			} else if (GetState() == GState.BetweenRounds) { // server is swapping teams
 				
 				int ZombieCount = 0;
 
-				if (teamId == 1) // to humans
-				{
-					++ServerSwitchedCount;
-					
-					// Add to the lottery if eligible
-					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
-					
-					RequestPlayersList();
-				} 
-				else if (teamId == 2) // to zombies
-				{
-					++ServerSwitchedCount;
-
-					// Switch back
-					MakeHumanFast(soldierName);
-				}
-				
 				// When the server is done swapping players, process patient zero
 				if (ServerSwitchedCount >= KnownPlayerCount)
 				{
@@ -1229,6 +1198,8 @@ namespace PRoConEvents
 						
 
 						MakeZombie(PatientZero);
+						
+						UpdateTeams(PatientZero, 2);
 
 						if (PatientZeroes.Count > (KnownPlayerCount/2)) PatientZeroes.Clear();
 
@@ -1240,11 +1211,32 @@ namespace PRoConEvents
 					DebugWrite("OnPlayerTeamChange: making " + PatientZero + " the first zombie!", 2);
 					
 					ServerSwitchedCount = 0;
+					
+					SetState(GState.RoundStarting);
 				}
 				/*
 				GameState stays in BetweenRounds state because we don't know when the
 				actual round starts until a player spawns. See OnPlayerSpawned.
 				*/
+			}
+			else // still switching between rounds
+			{
+				if (teamId == 1) // to humans
+				{
+					++ServerSwitchedCount;
+					
+					// Add to the lottery if eligible
+					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
+					
+					UpdateTeams(soldierName, teamId);
+				} 
+				else if (teamId == 2) // to zombies
+				{
+					++ServerSwitchedCount;
+
+					// Switch back
+					MakeHumanFast(soldierName);
+				}
 			}
 			
 		}
@@ -1254,7 +1246,7 @@ namespace PRoConEvents
 		{
 			if (ZombieModeEnabled == false) 
 			{
-				GameState = GState.Idle;
+				SetState(GState.Idle);
 				return;
 			}
 			
@@ -1275,30 +1267,56 @@ namespace PRoConEvents
 			}
 			
 			
-			String WhichTeam = (GameState == GState.Playing) ? "UNKNOWN" : GameState.ToString();
+			String WhichTeam = (GetState() == GState.Playing) ? "UNKNOWN" : GetState().ToString();
+			
+			bool NeedUpdate = true;
 			
 			lock (TeamHuman)
 			{
 				if (TeamZombie.Contains(soldierName))
 				{
 					WhichTeam = "ZOMBIE";
+					NeedUpdate = false;
 				}
 				else if (TeamHuman.Contains(soldierName))
 				{
 					WhichTeam = "HUMAN";
+					NeedUpdate = false;
 				}
 			}
 			DebugWrite("OnPlayerSpawned: " + soldierName + "(" + WhichTeam + ")", 5);
 			
 			PlayerState.UpdateSpawnTime(soldierName);
 			PlayerState.SetSpawned(soldierName, true);
+			
+			if (NeedUpdate)
+			{
+				int ToTeam = (NewPlayersJoinHumans) ? 1 : 2;
+
+				DebugWrite("OnPlayerSpawned: ^1^bforcing move to team " + ToTeam, 3);
+				
+				TellPlayer(soldierName + ": Sorry, need to force you to respawn ...", soldierName, false);
+
+				UpdateTeams(soldierName, ToTeam);
+
+				if (ToTeam == 1)
+				{
+					ForceMove(soldierName, HUMAN_TEAM, 0);
+				}
+				else
+				{
+					ForceMove(soldierName, ZOMBIE_TEAM, 0);
+				}
+				
+				return;
+			}
 
 
 			// Check if we have enough players spawned
 			int Need = MinimumHumans + MinimumZombies;
 			if (CountAllTeams() < Need)
 			{
-				if (GameState == GState.Playing)
+				if (GetState() == GState.Playing)
 				{
 					TellAll("Not enough players left to finish match ... MATCH HALTED!");
 					HaltMatch(); // Sets GameState to Waiting
@@ -1307,10 +1325,10 @@ namespace PRoConEvents
 				{
 					TellAll("Welcome to Zombie Mode! Need " + (Need-CountAllTeams()) + " more players to join AND spawn to start the match ..."); // $$$ - custom message
 				}
-				GameState = GState.Waiting;
+				SetState(GState.Waiting);
 				return; // Don't count this spawn
 			} 
-			else if (CountAllTeams() >= Need && (GameState == GState.Waiting || GameState == GState.Idle))
+			else if (CountAllTeams() >= Need && (GetState() == GState.Waiting || GetState() == GState.Idle))
 			{
 				TellAll("New match starting ... counting down ..."); // $$$ - custom message
 				CountdownNextRound(ZOMBIE_TEAM); // Sets GameState to CountingDown or NeedSpawn
@@ -1318,9 +1336,9 @@ namespace PRoConEvents
 			}
 			
 			// Check if this is the first spawn of the round/match
-			if (GameState == GState.BetweenRounds || GameState == GState.NeedSpawn)
+			if (GetState() == GState.BetweenRounds || GetState() == GState.NeedSpawn || GetState() == GState.RoundStarting)
 			{
-				GameState = GState.Playing;
+				SetState(GState.Playing);
 				DebugWrite("--- Version " + GetPluginVersion() + " ---", 2);
 				DebugWrite("^b^2****** MATCH STARTING WITH " + CountAllTeams() + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 5);
@@ -1351,7 +1369,7 @@ namespace PRoConEvents
 					{
 						ConsoleError("OnPlayerSpawned: " + soldierName + " should be human, but not present in TeamHuman list!");
 					
-						if (GameState == GState.Playing)
+						if (GetState() == GState.Playing)
 						{
 							DebugWrite("ZOMBIE MODE STOPPED - teams are not right!", 1);
 							TellAll("ZOMBIE MODE STOPPED - teams are not right!");
@@ -1374,7 +1392,7 @@ namespace PRoConEvents
 		{
 			if (ZombieModeEnabled == false) 
 			{
-				GameState = GState.Idle;
+				SetState(GState.Idle);
 				return;
 			}
 
@@ -1403,20 +1421,20 @@ namespace PRoConEvents
 			KillTracker.ResetPerRound();
 			
 			// Sanity check
-			DebugWrite("OnLevelLoaded: GameState is " + GameState, 3);
+			DebugWrite("OnLevelLoaded: GameState is " + GetState(), 3);
 		}
 
 		public override void OnRoundOver(int winningTeamId)
 		{
 			if (ZombieModeEnabled == false) 
 			{
-				GameState = GState.Idle;
+				SetState(GState.Idle);
 				return;
 			}
 
 			DebugWrite("OnRoundOver, GameState set to BetweenRounds", 4);
 			
-			GameState = GState.BetweenRounds;
+			SetState(GState.BetweenRounds);
 
 			// Reset the team switching counter
 			ServerSwitchedCount = 0;
@@ -1441,11 +1459,17 @@ namespace PRoConEvents
 		public override void OnPlayerLeft(CPlayerInfo playerInfo) {
 			if (ZombieModeEnabled == false) 
 			{
-				GameState = GState.Idle;
+				SetState(GState.Idle);
 				return;
 			}
 
 			DebugWrite("OnPlayerLeft: " + playerInfo.SoldierName, 4);
+			
+			lock (TeamHuman)
+			{
+				if (TeamHuman.Contains(playerInfo.SoldierName)) TeamHuman.Remove(playerInfo.SoldierName);
+				if (TeamZombie.Contains(playerInfo.SoldierName)) TeamZombie.Remove(playerInfo.SoldierName);
+			}
 			
 			KillTracker.RemovePlayer(playerInfo.SoldierName);
 			
@@ -1458,10 +1482,27 @@ namespace PRoConEvents
 					PlayerKickQueue.Remove(playerInfo.SoldierName);
 				}
 			}
-
-			RequestPlayersList();
 		}
 
+		public override void OnPlayerKickedByAdmin(string SoldierName, string reason) 
+		{
+			if (ZombieModeEnabled == false)
+				return;
+			
+			DebugWrite("OnPlayerKickedByAdmin: " + SoldierName + ", reason: " + reason, 1);
+
+			KillTracker.RemovePlayer(SoldierName);
+			
+			RemoveJoinQueue(SoldierName);
+
+			lock (PlayerKickQueue)
+			{
+				if (PlayerKickQueue.Contains(SoldierName))
+				{
+					PlayerKickQueue.Remove(SoldierName);
+				}
+			}
+		}
 
 		#endregion
 
@@ -1512,7 +1553,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.13.0";
+			return "0.1.14.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1815,7 +1856,7 @@ namespace PRoConEvents
 		private void CountdownNextRound(string WinningTeam)
 		{
 			
-			GameState = GState.CountingDown;
+			SetState(GState.CountingDown);
 			
 			DebugWrite("CountdownNextRound started", 2);
 			
@@ -1843,7 +1884,7 @@ namespace PRoConEvents
 						
 						ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
 						
-						GameState = GState.BetweenRounds;
+						SetState(GState.BetweenRounds);
 					}
 					
 				}
@@ -1965,7 +2006,7 @@ namespace PRoConEvents
 				double MaxTime = MaxIdleSeconds;
 				lock (TeamHuman)
 				{
-					if (GameState == GState.Playing && TeamHuman.Contains(Name))
+					if (GetState() == GState.Playing && TeamHuman.Contains(Name))
 					{
 						MaxTime = HumanMaxIdleSeconds;
 					}
@@ -2023,8 +2064,6 @@ namespace PRoConEvents
 			DebugWrite("MakeHuman: " + PlayerName, 3);
 
 			ForceMove(PlayerName, HUMAN_TEAM);
-			
-			RequestPlayersList();
 		}
 
 		private void MakeHumanFast(string PlayerName)
@@ -2042,8 +2081,6 @@ namespace PRoConEvents
 			*/
 			
 			ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, HUMAN_TEAM, BLANK_SQUAD, FORCE_MOVE);
-
-			ImmediatePlayersList();
 		}
 
 		private void ForceMove(string PlayerName, string TeamId, int DelaySecs)
@@ -2076,10 +2113,6 @@ namespace PRoConEvents
 					ExecuteCommand("procon.protected.send", "admin.movePlayer", PlayerName, TeamId, BLANK_SQUAD, FORCE_MOVE);
 					
 					Thread.Sleep(10);
-					
-					// Now update TeamHuman & TeamZombie
-					RequestPlayersList();
-					
 				}
 				catch (Exception e)
 				{
@@ -2115,6 +2148,9 @@ namespace PRoConEvents
 		private void MakeTeams()
 		{
 			GState FinalState = GState.NeedSpawn;
+			
+			SetState(GState.Moving);
+			
 			ThreadStart makeTeams = delegate
 			{
 				try
@@ -2248,16 +2284,10 @@ namespace PRoConEvents
 				}
 				finally
 				{
-					GameState = FinalState;
-					ImmediatePlayersList();
+					SetState(FinalState);
 				}
 			};
 			
-			// Update the players list
-			
-			ImmediatePlayersList();
-			
-			// Tell everyone to hold on tight
 			
 			Thread t = new Thread(makeTeams);
 
@@ -2435,6 +2465,25 @@ namespace PRoConEvents
 		{
 			if (JoinQueue.Contains(Name)) JoinQueue.Remove(Name);
 		}
+		
+		private void UpdateTeams(String Name, int TeamId)
+		{
+			lock (TeamHuman)
+			{
+				if (TeamId == 1)
+				{
+					if (TeamZombie.Contains(Name)) TeamZombie.Remove(Name);
+					if (!TeamHuman.Contains(Name)) TeamHuman.Add(Name);
+				}
+				else if (TeamId == 2)
+				{
+					if (TeamHuman.Contains(Name)) TeamHuman.Remove(Name);
+					if (!TeamZombie.Contains(Name)) TeamZombie.Add(Name);
+				}
+			}
+
+			RequestPlayersList();
+		}
 
 		#endregion
 
@@ -2572,7 +2621,7 @@ namespace PRoConEvents
 
 		private void Announce(string Message)
 		{
-			if (GameState == GState.BetweenRounds) return;
+			if (GetState() == GState.BetweenRounds) return;
 			ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "all");
 			LogChat(Message);
 		}
@@ -2580,7 +2629,7 @@ namespace PRoConEvents
 		private void TellAll(string Message, bool AlsoYell)
 		{
 			// Yell and say
-			if (GameState == GState.BetweenRounds) return;
+			if (GetState() == GState.BetweenRounds) return;
 			if (AlsoYell) Announce(Message);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "all");
 			if (!AlsoYell) LogChat(Message);
@@ -2594,7 +2643,7 @@ namespace PRoConEvents
 		private void TellTeam(string Message, string TeamId, bool AlsoYell)
 		{
 			// Yell and say
-			if (GameState == GState.BetweenRounds) return;
+			if (GetState() == GState.BetweenRounds) return;
 			if (AlsoYell) ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "team", TeamId);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "team", TeamId);
 			LogChat(Message, (TeamId == HUMAN_TEAM) ? "humans" : "zombies");
@@ -2608,7 +2657,7 @@ namespace PRoConEvents
 		private void TellPlayer(string Message, string SoldierName, bool AlsoYell)
 		{
 			// Yell and say
-			if (GameState == GState.BetweenRounds) return;
+			if (GetState() == GState.BetweenRounds) return;
 			if (AlsoYell) ExecuteCommand("procon.protected.send", "admin.yell", Message, AnnounceDisplayLength.ToString(), "player", SoldierName);
 			ExecuteCommand("procon.protected.send", "admin.say", Message, "player", SoldierName);
 			LogChat(Message, SoldierName);
@@ -2693,7 +2742,7 @@ namespace PRoConEvents
 			bool IsPlaying = false;
 
 			
-			if (ZombieModeEnabled) switch(GameState)
+			if (ZombieModeEnabled) switch(GetState())
 			{
 				case GState.Idle:
 					status = "No one is playing zombie mode (Idle)!";
@@ -2761,7 +2810,7 @@ namespace PRoConEvents
 			KnownPlayerCount = 0;
 			ServerSwitchedCount = 0;
 			PatientZero = null;
-			GameState = GState.Idle;
+			SetState(GState.Idle);
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 		}
@@ -2772,7 +2821,7 @@ namespace PRoConEvents
 			Lottery.Clear();
 			PlayerState.ResetPerMatch();
 			PatientZero = null;
-			GameState = GState.Waiting;
+			SetState(GState.Waiting);
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 		}
@@ -2855,6 +2904,22 @@ namespace PRoConEvents
 
 			// Otherwise
 			return null;
+		}
+		
+		private void SetState(GState state)
+		{
+			lock (StateLock)
+			{
+				GameState = state;
+			}
+		}
+		
+		private GState GetState()
+		{
+			lock (StateLock)
+			{
+				return GameState;
+			}
 		}
 
 		#endregion
