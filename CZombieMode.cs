@@ -490,7 +490,7 @@ namespace PRoConEvents
 				return;
 				
 			DebugWrite("OnPlayerKilled: " + KillerName + " killed " + VictimName + " with " + WeaponName, 4);
-
+			
 			lock (TeamHuman)
 			{
 				RemainingHumans = TeamHuman.Count - 1;
@@ -651,7 +651,7 @@ namespace PRoConEvents
 				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + TeamZombie.Count + " zombies with " + KillTracker.GetZombiesKilled() + " of " + GetKillsNeeded(TeamZombie.Count + TeamHuman.Count) + " zombies killed", (VictimTeam == HUMAN_TEAM) ? 2 : 3);
 			}
 			
-			CheckVictoryConditions();
+			CheckVictoryConditions(RemainingHumans == 0);
 		}
 
 		public override void OnListPlayers(List<CPlayerInfo> Players, CPlayerSubset Subset)
@@ -723,7 +723,7 @@ namespace PRoConEvents
 				if (SomeoneMoved)
 				{
 					DebugWrite("OnListPlayers: playing, checking victory conditions", 5);
-					CheckVictoryConditions();
+					CheckVictoryConditions(false);
 				}
 			}
 			else if (GetState() == GState.BetweenRounds)
@@ -1557,7 +1557,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.14.0";
+			return "0.1.15.0";
 		}
 
 		public string GetPluginAuthor()
@@ -2341,7 +2341,7 @@ namespace PRoConEvents
 			return Needed;
 		}
 
-		private void CheckVictoryConditions()
+		private void CheckVictoryConditions(bool ZombieWinOnKill)
 		{
 			// Victory conditions
 			
@@ -2388,7 +2388,7 @@ namespace PRoConEvents
 			else 
 			{
 				// All humans infected?
-				if (HCount == 0 && ZCount > MinimumZombies)
+				if ((HCount == 0 || ZombieWinOnKill) && ZCount > MinimumZombies)
 				{
 					msg = "ZOMBIES WIN, all humans infected!"; // $$$ - custom message
 					DebugWrite("^7^b ***** " + msg + "^n^0", 1);
