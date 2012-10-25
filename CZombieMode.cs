@@ -1134,6 +1134,8 @@ namespace PRoConEvents
 					// Switching to the zombie team is okay
 					FreshZombie.Add(soldierName);
 					UpdateTeams(soldierName, teamId);
+				
+					CheckVictoryConditions(false);
 				} 
 				else if (!wasHuman && !wasZombie)
 				{
@@ -1151,12 +1153,16 @@ namespace PRoConEvents
 					}
 						
 					UpdateTeams(soldierName, ((NewPlayersJoinHumans) ? 1 : 2));
+				
+					CheckVictoryConditions(false);
 				}
 				else
 				{
 					ConsoleError("OnPlayerTeamChange: Playing/NeedSpawn " + soldierName + " not in expected team state, forcing update!");
 
 					UpdateTeams(soldierName, teamId);
+				
+					CheckVictoryConditions(false);
 				}
 			} else if (GetState() == GState.BetweenRounds) { // server is swapping teams
 				
