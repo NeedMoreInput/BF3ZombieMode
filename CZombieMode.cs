@@ -529,7 +529,7 @@ namespace PRoConEvents
 			}
 			else if (KillerName != VictimName && ValidateWeapon(DamageType, KillerTeam) == false)
 			{
-				String msg = "ZOMBIE RULE VIOLATION! " + WeaponName + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? " Zombie!" : " Human!");  // $$$ - custom message
+				String msg = "ZOMBIE RULE VIOLATION! " + WeaponName + " can't be used by " + ((KillerTeam == ZOMBIE_TEAM) ? "Zombie!" : "Human!");  // $$$ - custom message
 				
 				DebugWrite(msg + " " + KillerName + " killed " + VictimName, 2);
 				
@@ -774,7 +774,7 @@ namespace PRoConEvents
 			
 			if (PlayerName == "Server")
 			{
-				DebugWrite("------ CHAT: " + CleanMessage, 6);
+				DebugWrite("------ CHAT: " + CleanMessage, 7);
 				return;
 			}
 
@@ -787,7 +787,7 @@ namespace PRoConEvents
 				return;
 			}
 				
-			DebugWrite("Command: '" + Message + "' => '" + CleanMessage + "'", 1);
+			DebugWrite(PlayerName + " tried command: " + CleanMessage, 1);
 			
 			if (CommandPrefix.Length > 1 && Command == CommandPrefix)
 			{
@@ -1044,8 +1044,8 @@ namespace PRoConEvents
 		public override void OnServerInfo(CServerInfo serverInfo)
 		{
 			// This is just to test debug logging
-			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ....", 7);
-			DebugWrite("GameState = " + GetState(), 6);
+			DebugWrite("OnServerInfo: Debug level = " + DebugLevel + " ....", 9);
+			DebugWrite("GameState = " + GetState(), 8);
 			
 			if (GetState() == GState.BetweenRounds)
 			{
@@ -1265,7 +1265,7 @@ namespace PRoConEvents
 			
 			if (KickIt)
 			{
-				DebugWrite("OnPlayerSpawned: Over max with " + soldierName, 5);
+				DebugWrite("OnPlayerSpawned: Over max with " + soldierName, 4);
 				ScheduleKick(soldierName, "Zombie Mode max players of " + MaxPlayers + " exceeded, try later"); // $$$ - custom message
 				return;
 			}
@@ -1288,7 +1288,7 @@ namespace PRoConEvents
 					NeedUpdate = false;
 				}
 			}
-			DebugWrite("OnPlayerSpawned: " + soldierName + "(" + WhichTeam + ")", 5);
+			DebugWrite("OnPlayerSpawned: " + soldierName + "(" + WhichTeam + ")", 4);
 			
 			PlayerState.UpdateSpawnTime(soldierName);
 			PlayerState.SetSpawned(soldierName, true);
@@ -1343,7 +1343,7 @@ namespace PRoConEvents
 			if (GetState() == GState.BetweenRounds || GetState() == GState.NeedSpawn || GetState() == GState.RoundStarting)
 			{
 				SetState(GState.Playing);
-				DebugWrite("--- Version " + GetPluginVersion() + " ---", 2);
+				DebugWrite("--- Version " + GetPluginVersion() + " ---", 1);
 				DebugWrite("^b^2****** MATCH STARTING WITH " + CountAllTeams() + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 5);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
@@ -1436,7 +1436,7 @@ namespace PRoConEvents
 				return;
 			}
 
-			DebugWrite("OnRoundOver, GameState set to BetweenRounds", 4);
+			DebugWrite("OnRoundOver, GameState set to BetweenRounds", 3);
 			
 			SetState(GState.BetweenRounds);
 
@@ -1467,7 +1467,7 @@ namespace PRoConEvents
 				return;
 			}
 
-			DebugWrite("OnPlayerLeft: " + playerInfo.SoldierName, 4);
+			DebugWrite("OnPlayerLeft: " + playerInfo.SoldierName, 3);
 			
 			lock (TeamHuman)
 			{
@@ -2072,7 +2072,7 @@ namespace PRoConEvents
 
 		private void MakeHumanFast(string PlayerName)
 		{
-			DebugWrite("MakeHumanFast: " + PlayerName, 5);
+			DebugWrite("MakeHumanFast: " + PlayerName, 3);
 
 			/*
 			Bug fix: Can't use ForceMove here because it makes a thread,
