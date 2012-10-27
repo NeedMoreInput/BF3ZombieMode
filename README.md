@@ -1,8 +1,6 @@
 BF3 Zombie Mode
 ===============
 
-##STILL IN DEVELOPMENT, DO NOT USE YET
-
 <h2>Description</h2>
 
 <p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the _Infected_ or _Zombie_ variant play.</p>
