@@ -46,7 +46,7 @@ namespace PRoConEvents
 
 		#region PluginSettings
 		
-		private int DebugLevel = 3; // 3 while in development, 2 when released
+		private int DebugLevel = 2; // 3 while in development, 2 when released
 
 		private string CommandPrefix = "!zombie";
 
@@ -648,7 +648,7 @@ namespace PRoConEvents
 
 			lock (TeamHuman)
 			{
-				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + TeamZombie.Count + " zombies with " + KillTracker.GetZombiesKilled() + " of " + GetKillsNeeded(TeamZombie.Count + TeamHuman.Count) + " zombies killed", (VictimTeam == HUMAN_TEAM) ? 2 : 3);
+				DebugWrite("OnPlayerKilled: " + RemainingHumans + " humans vs " + ((RemainingHumans == TeamHuman.Count) ? TeamZombie.Count : (TeamZombie.Count+1)) + " zombies with " + KillTracker.GetZombiesKilled() + " of " + GetKillsNeeded(TeamZombie.Count + TeamHuman.Count) + " zombies killed", (VictimTeam == HUMAN_TEAM) ? 2 : 3);
 			}
 			
 			CheckVictoryConditions(RemainingHumans == 0);
@@ -895,6 +895,7 @@ namespace PRoConEvents
 						return;
 					}
 					TellAll("Admin has forced the start of a new match ...");
+					DebugWrite("***** HALT: by admin!", 2);
 					HaltMatch();
 					CountdownNextRound(ZOMBIE_TEAM);
 					break;
@@ -1195,7 +1196,7 @@ namespace PRoConEvents
 						
 						if (Lottery.Count == 0)
 						{
-							ConsoleWarn("OnPlayerTeamChange, can't find an eligible player for patient zero!");
+							DebugWrite("OnPlayerTeamChange, can't find an eligible player for patient zero!", 3);
 							PatientZeroes.Clear();
 							Lottery.Add(soldierName);
 						}
@@ -1329,6 +1330,7 @@ namespace PRoConEvents
 				if (GetState() == GState.Playing)
 				{
 					TellAll("Not enough players left to finish match ... MATCH HALTED!");
+					DebugWrite("***** HALT: not enough players!", 2);
 					HaltMatch(); // Sets GameState to Waiting
 				}
 				else
@@ -1563,7 +1565,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "0.1.15.0";
+			return "1.0.0.0";
 		}
 
 		public string GetPluginAuthor()
@@ -2218,7 +2220,7 @@ namespace PRoConEvents
 					
 					if (Lottery.Count < MinimumZombies)
 					{
-						ConsoleWarn("MakeTeams, can't find enough eligible players for patient zero!");
+						DebugWrite("MakeTeams, can't find enough eligible players for patient zero!", 3);
 						
 						PatientZeroes.Clear();
 						Lottery.Clear();
@@ -3376,7 +3378,7 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
 <h3>Changelog</h3>
-<blockquote><h4>1.0.0 (20-OCT-2012)</h4>
+<blockquote><h4>1.0.0.0 (26-OCT-2012)</h4>
 	- initial version<br/>
 </blockquote>
 ";
