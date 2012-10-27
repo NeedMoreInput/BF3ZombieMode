@@ -1356,6 +1356,14 @@ namespace PRoConEvents
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 5);
 				TellAll(PatientZero + " is the first zombie!"); // $$$ - custom message
 			}
+			else if (GetState() == GState.Moving)
+			{
+				DebugWrite("OnPlayerSpawned: early spawner while still moving " + soldierName, 3);
+				TellPlayer("The match hasn't started yet, you might have to respawn ...", soldierName);
+				return;
+			}
+			
+			// Otherwise, GameState is Playing
 			
 			int n = PlayerState.GetSpawnCount(soldierName);
 			
@@ -1565,7 +1573,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "1.0.0.0";
+			return "1.0.1.0";
 		}
 
 		public string GetPluginAuthor()
@@ -2194,7 +2202,7 @@ namespace PRoConEvents
 
 						ExecuteCommand("procon.protected.send", "admin.killPlayer", Mover);
 
-						Thread.Sleep(30);
+						Thread.Sleep(20);
 
 						// Now do the move
 
@@ -2208,11 +2216,15 @@ namespace PRoConEvents
 					
 					Lottery.Clear();
 					
-					lock (TeamHuman)
+					List<CPlayerInfo> PlayersCopy = new List<CPlayerInfo>();
+					PlayersCopy.AddRange(PlayerList);
+
+					foreach (CPlayerInfo p in PlayersCopy)
 					{
-						foreach (String h in TeamHuman)
+						String PName = p.SoldierName;
+						if (!PatientZeroes.Contains(PName))
 						{
-							if (!PatientZeroes.Contains(h)) Lottery.Add(h);
+							Lottery.Add(PName);
 						}
 					}
 
@@ -2221,6 +2233,8 @@ namespace PRoConEvents
 					if (Lottery.Count < MinimumZombies)
 					{
 						DebugWrite("MakeTeams, can't find enough eligible players for patient zero!", 3);
+						
+						Sleep(2); // Let TeamChange catch up
 						
 						PatientZeroes.Clear();
 						Lottery.Clear();
@@ -2236,8 +2250,8 @@ namespace PRoConEvents
 
 						if (Lottery.Count < MinimumZombies)
 						{
-							ConsoleError("MakeTeams: not enough players in human team, patient zero lottery failed!");
-							TellAll("ERROR making teams, mode HALTED, respawn or restart round to fix!");
+							DebugWrite("***** HALT: MakeTeams: not enough players to make " + MinimumZombies + " minimum zombies, patient zero lottery failed!", 2);
+							TellAll("Not enough players to make teams, match halted!");
 							Reset();
 							FinalState = GState.Idle;
 							RequestPlayersList();
