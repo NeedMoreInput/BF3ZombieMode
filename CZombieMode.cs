@@ -702,6 +702,8 @@ namespace PRoConEvents
 			
 			// Check for differences
 			
+			KnownPlayerCount = HumanCensus.Count + ZombieCensus.Count;
+
 			bool SomeoneMoved = false;
 			
 			lock (TeamHuman)
@@ -729,7 +731,6 @@ namespace PRoConEvents
 			else if (GetState() == GState.BetweenRounds)
 			{
 				DebugWrite("OnListPlayers: between rounds", 5);
-				KnownPlayerCount = HumanCensus.Count + ZombieCensus.Count;
 			}
 			else if (GetState() == GState.Idle || GetState() == GState.Waiting || GetState() == GState.RoundStarting)
 			{
@@ -2289,7 +2290,6 @@ namespace PRoConEvents
 					// Reset state
 
 					Lottery.Clear();
-					KnownPlayerCount = 0;
 					ServerSwitchedCount = 0;
 					
 					PlayerState.ResetPerMatch();
@@ -2297,7 +2297,9 @@ namespace PRoConEvents
 
 					/* GameState is set to Playing in OnPlayerSpawned */
 					
-					Sleep(1);
+					DebugWrite("MakeTeams: let TeamChange catch up", 5);
+					
+					Thread.Sleep(Math.Max(KnownPlayerCount * 150, 1500)); // Let TeamChange catch up
 					
 					DebugWrite("MakeTeams: ready for another round with " +TotalNum + " players!", 2);
 					
