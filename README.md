@@ -63,7 +63,7 @@ BF3 Zombie Mode
 
 <p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. <b>Matches Before Next Map</b> will be played before the next map is loaded. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
 
-<p><b>Matches Before Next Map</b>: The default value is <i>3</i>. If <b>Rematch Enabled</b> is <i>On</i>, this is the number of matches that are played in the same map round/level before the next map is loaded. This assumes the map list is set up to only play eacy map level 1 round.</p>
+<p><b>Matches Before Next Map</b>: The default value is <i>3</i>. If <b>Rematch Enabled</b> is <i>On</i>, this is the number of matches that are played in the same map round/level before the next map is loaded. This assumes the map list is set up to only play each map level 1 round.</p>
 
 <h3>Goal For Humans</h3>
 
