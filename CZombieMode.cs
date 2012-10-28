@@ -550,7 +550,7 @@ namespace PRoConEvents
 				}
 				else if (TempBanInsteadOfKick)
 				{
-					DebugWrite("OnPlayerKilled: ^b^8TEMP BAN " + KillerName, 2);
+					DebugWrite("OnPlayerKilled: ^b^8TEMP BAN " + KillerName, 1);
 
 					String unit = "seconds";
 					double dur = TempBanSeconds;
@@ -794,7 +794,7 @@ namespace PRoConEvents
 				return;
 			}
 				
-			DebugWrite(PlayerName + " tried command: " + CleanMessage, 1);
+			DebugWrite(PlayerName + " tried command: " + CleanMessage, 2);
 			
 			if (CommandPrefix.Length > 1 && Command == CommandPrefix)
 			{
@@ -943,7 +943,7 @@ namespace PRoConEvents
 						TellPlayer("No player name matches '" + MessagePieces[1] + "'", PlayerName, false);
 						return;
 					}
-					DebugWrite("Warning sent by " + PlayerName + " to " + Target + ": " + WarningMessage, 1);
+					DebugWrite("Warning sent by " + PlayerName + " to " + Target + ": " + WarningMessage, 2);
 					Warn(Target, WarningMessage);
 					TellPlayer("Warning sent to " + Target, PlayerName, false);
 					break;
@@ -1347,7 +1347,7 @@ namespace PRoConEvents
 				if (GetState() == GState.Playing)
 				{
 					TellAll("Not enough players left to finish match ... MATCH HALTED!");
-					DebugWrite("***** HALT: not enough players!", 2);
+					DebugWrite("***** HALT: not enough players!", 1);
 					HaltMatch(); // Sets GameState to Waiting
 				}
 				else
@@ -1624,7 +1624,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "1.1.0.0";
+			return "1.1.2.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1959,7 +1959,7 @@ namespace PRoConEvents
 						TellAll("Next round will start in 5 seconds");
 						Sleep(5);
 						
-						DebugWrite("CountdownNextRound thread: end round with winner teamID = " + WinningTeam, 3);
+						DebugWrite("CountdownNextRound thread: end round with winner teamID = " + WinningTeam, 2);
 						
 						ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
 						
@@ -2315,7 +2315,7 @@ namespace PRoConEvents
 
 						if (Lottery.Count < MinimumZombies)
 						{
-							DebugWrite("***** HALT: MakeTeams: not enough players to make " + MinimumZombies + " minimum zombies, patient zero lottery failed!", 2);
+							DebugWrite("***** HALT: MakeTeams: not enough players to make " + MinimumZombies + " minimum zombies, patient zero lottery failed!", 1);
 							TellAll("Not enough players to make teams, match halted!");
 							Reset();
 							FinalState = GState.Idle;
