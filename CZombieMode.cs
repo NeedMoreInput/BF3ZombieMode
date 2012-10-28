@@ -65,6 +65,8 @@ namespace PRoConEvents
 		private ZombieModeKillTracker KillTracker = new ZombieModeKillTracker();
 		
 		private bool RematchEnabled = true; // true: round does not end, false: round ends
+
+		private int MatchesBeforeNextMap = 3;
 		
 		private int HumanMaxIdleSeconds = 3*60; // aggressively kick idle humans
 		
@@ -161,6 +163,10 @@ namespace PRoConEvents
 		private DescriptionClass Description = new DescriptionClass();
 		
 		private List<String> JoinQueue = new List<String>();
+		
+		private int MatchesCount = 0;
+		
+		private String LastMover = null;
 		
 		#endregion
 
@@ -548,7 +554,7 @@ namespace PRoConEvents
 
 					String unit = "seconds";
 					double dur = TempBanSeconds;
-					if (TempBanSeconds > 60 && TempBanSeconds < (2*60))
+					if (TempBanSeconds > 60 && TempBanSeconds < (90*60))
 					{
 						unit = "minutes";
 						dur = dur / 60.0;
@@ -1110,15 +1116,21 @@ namespace PRoConEvents
 			
 			string team = (wasHuman) ? "HUMAN" : "JOINING";
 			team = (wasZombie) ? "ZOMBIE" : "JOINING";
-			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId, 3);
+			DebugWrite("OnPlayerTeamChange: " + soldierName + "(" + team + ") to " + teamId + " {" + GetState().ToString() + "}", 3);
 
 
 			// Short-cut update states
 			
 			if (GetState() == GState.Moving || GetState() == GState.RoundStarting)
 			{
-				DebugWrite("OnPlayerTeamChange: ^bUPDATING TEAMS^0", 3);
+				DebugWrite("OnPlayerTeamChange: ^bUPDATING TEAMS^0", 6);
 				UpdateTeams(soldierName, teamId);
+				
+				if (GetState() == GState.Moving && soldierName == LastMover && teamId == 2)
+				{
+					LastMover = null;
+				}
+				
 				return;
 			}
 			
@@ -1169,9 +1181,11 @@ namespace PRoConEvents
 			} else if (GetState() == GState.BetweenRounds) { // server is swapping teams
 				
 				int ZombieCount = 0;
+				
+				DebugWrite("OnPlayerTeamChange: ServerSwitchedCount=" + (ServerSwitchedCount+1) + ", KnownPlayerCount=" + KnownPlayerCount, 5);
 
 				// When the server is done swapping players, process patient zero
-				if (ServerSwitchedCount >= KnownPlayerCount)
+				if ((ServerSwitchedCount+1) >= KnownPlayerCount)
 				{
 					while (ZombieCount < MinimumZombies)
 					{
@@ -1235,14 +1249,16 @@ namespace PRoConEvents
 						// Add to the lottery if eligible
 						if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
 
-						UpdateTeams(soldierName, teamId);
+						UpdateTeams(soldierName, 1);
 					} 
 					else if (teamId == 2) // to zombies
 					{
 						++ServerSwitchedCount;
-
+						
 						// Switch back
 						MakeHumanFast(soldierName);
+						
+						UpdateTeams(soldierName, 1);
 					}
 				}
 				/*
@@ -1348,10 +1364,44 @@ namespace PRoConEvents
 				return;
 			}
 			
+			// Sanity check
+			if (GetState() == GState.BetweenRounds)
+			{
+				int cz = 0;
+				
+				lock (TeamHuman)
+				{
+					cz = TeamZombie.Count;
+				}
+				
+				if (PatientZero == null || cz == 0)
+				{
+					// We failed to pick a zombie, so use this spawner
+					DebugWrite("OnPlayerSpawned: BetweenRounds sanity check failed, forcing zombie " + soldierName, 5);
+					
+					SetState(GState.RoundStarting);
+					ServerSwitchedCount = 0;
+					
+					PatientZero = soldierName;
+					PatientZeroes.Add(PatientZero);
+
+					DebugWrite("OnPlayerSpawned: making " + PatientZero + " the first zombie!", 2);
+					
+					MakeZombie(soldierName);
+					
+					UpdateTeams(soldierName, 2);
+				}
+			}
+			
 			// Check if this is the first spawn of the round/match
 			if (GetState() == GState.BetweenRounds || GetState() == GState.NeedSpawn || GetState() == GState.RoundStarting)
 			{
 				SetState(GState.Playing);
+				if (RematchEnabled)
+				{
+					++MatchesCount;
+					DebugWrite("Match " + MatchesCount + " of " + MatchesBeforeNextMap, 2);
+				}
 				DebugWrite("--- Version " + GetPluginVersion() + " ---", 1);
 				DebugWrite("^b^2****** MATCH STARTING WITH " + CountAllTeams() + " players!^0^n", 1);
 				DebugWrite("OnPlayerSpawned: announcing first zombie is " + PatientZero, 5);
@@ -1574,7 +1624,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "1.0.1.0";
+			return "1.1.0.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1647,6 +1697,12 @@ namespace PRoConEvents
 			lstReturn.Add(new CPluginVariable("Game Settings|New Players Join Humans", typeof(enumBoolOnOff), NewPlayersJoinHumans ? enumBoolOnOff.On : enumBoolOnOff.Off));
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Rematch Enabled", typeof(enumBoolOnOff), RematchEnabled ? enumBoolOnOff.On : enumBoolOnOff.Off));
+
+			if (RematchEnabled)
+			{
+				lstReturn.Add(new CPluginVariable("Game Settings|Matches Before Next Map", MatchesBeforeNextMap.GetType(), MatchesBeforeNextMap));
+			}
+
 			
 			if (ZombieKillLimitEnabled)
 			{
@@ -1885,7 +1941,7 @@ namespace PRoConEvents
 			{
 				try
 				{
-					if (RematchEnabled)
+					if (RematchEnabled && MatchesCount < MatchesBeforeNextMap)
 					{
 						Sleep(AnnounceDisplayLength);
 						TellAll("New match will start in 5 seconds ... prepare to be moved!");
@@ -1897,11 +1953,13 @@ namespace PRoConEvents
 					}
 					else
 					{
+						MatchesCount = 0;
+						
 						Sleep(AnnounceDisplayLength);
 						TellAll("Next round will start in 5 seconds");
 						Sleep(5);
 						
-						DebugWrite("CountdownNextRound thread: end round with winner teamID = " + "WinningTeam", 3);
+						DebugWrite("CountdownNextRound thread: end round with winner teamID = " + WinningTeam, 3);
 						
 						ExecuteCommand("procon.protected.send", "mapList.endRound", WinningTeam);
 						
@@ -2180,13 +2238,16 @@ namespace PRoConEvents
 					
 					// Move all the zombies to the human team
 					
-					List<String> ZombieCopy = new List<String>();
+					List<String> AllPlayerCopy = new List<String>();
+					List<String> HumanCopy = new List<String>();
 					
 					int TotalNum = 0;
 					
 					lock (TeamHuman) // Only lock this object for both humans and zombies
 					{
-						ZombieCopy.AddRange(TeamZombie);
+						AllPlayerCopy.AddRange(TeamHuman);
+						HumanCopy.AddRange(TeamHuman);
+						AllPlayerCopy.AddRange(TeamZombie);
 						TotalNum = TeamHuman.Count + TeamZombie.Count;
 					}
 					
@@ -2194,7 +2255,7 @@ namespace PRoConEvents
 					// We can't use MakeHuman here, because we are in a thread
 					// We can't use TeamZombie here, because we are modifying it
 					
-					foreach (String Mover in ZombieCopy)
+					foreach (String Mover in AllPlayerCopy)
 					{
 
 						Thread.Sleep(30);
@@ -2202,6 +2263,9 @@ namespace PRoConEvents
 						// Kill player requires a delay to work correctly
 
 						ExecuteCommand("procon.protected.send", "admin.killPlayer", Mover);
+						
+						// Only kill humans, no need to move them
+						if (HumanCopy.Contains(Mover)) continue;
 
 						Thread.Sleep(20);
 
@@ -2286,6 +2350,8 @@ namespace PRoConEvents
 					
 
 					DebugWrite("MakeTeams: lottery selected " + PatientZero + " as first zombie!", 2);
+					
+					LastMover = PatientZero;
 
 					// Reset state
 
@@ -2299,7 +2365,31 @@ namespace PRoConEvents
 					
 					DebugWrite("MakeTeams: let TeamChange catch up", 5);
 					
-					Thread.Sleep(Math.Max(KnownPlayerCount * 150, 1500)); // Let TeamChange catch up
+					/* 
+					Sleep to let TeamChange events catch up. Handshake
+					with OnPlayerTeamChange by testing LastMover for null.
+					Time out after 5 seconds (6.5 total).
+					*/
+					
+					Thread.Sleep(1500);
+					
+					for (int i = 0; i < 10; ++i)
+					{
+						bool Handshake = false;
+						
+						lock (TeamHuman)
+						{
+							Handshake = (LastMover == null);
+						}
+						
+						if (Handshake)
+						{
+							DebugWrite("MakeTeams: handshake received", 5);
+							break;
+						}
+						
+						Thread.Sleep(500);
+					}
 					
 					DebugWrite("MakeTeams: ready for another round with " +TotalNum + " players!", 2);
 					
@@ -2839,6 +2929,9 @@ namespace PRoConEvents
 			ServerSwitchedCount = 0;
 			PatientZero = null;
 			SetState(GState.Idle);
+			MatchesCount = 0;
+			LastMover = null;
+			
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 		}
@@ -2850,6 +2943,8 @@ namespace PRoConEvents
 			PlayerState.ResetPerMatch();
 			PatientZero = null;
 			SetState(GState.Waiting);
+			LastMover = null;
+			
 			BulletDamage = 100;
 			ExecuteCommand("procon.protected.send", "vars.bulletDamage", BulletDamage.ToString());
 		}
@@ -3245,7 +3340,7 @@ namespace PRoConEvents
 		public String HTML = @"
 <h2>Description</h2>
 
-<p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the _Infected_ or _Zombie_ variant play.</p>
+<p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the <i>Infected</i> or <i>Zombie</i> variant play.</p>
 
 <p><b>NOTE:</b> the game server <b>must</b> be run in unranked mode (vars.ranked false). Zombie Mode will not work on a ranked server.</p>
 
@@ -3303,7 +3398,9 @@ namespace PRoConEvents
 
 <p><b>New Players Join Humans</b>: <i>On/Off</i>, default is <i>On</i>. If <i>On</i>, any new players that join the server will be force moved to the human team. If <i>Off</i>, any new players that join the server will be force moved to the zombie team.</p>
 
-<p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
+<p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. <b>Matches Before Next Map</b> will be played before the next map is loaded. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
+
+<p><b>Matches Before Next Map</b>: The default value is <i>3</i>. If <b>Rematch Enabled</b> is <i>On</i>, this is the number of matches that are played in the same map round/level before the next map is loaded. This assumes the map list is set up to only play eacy map level 1 round.</p>
 
 <h3>Goal For Humans</h3>
 
@@ -3393,6 +3490,12 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
 <h3>Changelog</h3>
+<blockquote><h4>1.0.1.0 (26-OCT-2012)</h4>
+	- V1.0: Added <b>Matches Before Next Map</b> setting, more improvements to MakeTeams.<br/>
+</blockquote>
+<blockquote><h4>1.0.1.0 (27-OCT-2012)</h4>
+	- V1.0 Patch 1: Improved timing between MakeTeams and TeamChange event<br/>
+</blockquote>
 <blockquote><h4>1.0.0.0 (26-OCT-2012)</h4>
 	- initial version<br/>
 </blockquote>
