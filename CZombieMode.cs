@@ -731,8 +731,8 @@ namespace PRoConEvents
 				if (SomeoneMoved)
 				{
 					DebugWrite("OnListPlayers: playing, checking victory conditions", 5);
-					CheckVictoryConditions(false);
 				}
+				CheckVictoryConditions(false);
 			}
 			else if (GetState() == GState.BetweenRounds)
 			{
@@ -1019,6 +1019,7 @@ namespace PRoConEvents
 					{
 					double st = PlayerState.GetLastSpawnTime(PlayerName);
 					String isw = (PlayerState.GetSpawned(PlayerName)) ? "spawned" : "dead";
+					TellPlayer("Zombie plugin version: " + GetPluginVersion(), PlayerName, false);
 					TellPlayer("You are " + isw + " and your last action was " + st.ToString("F0") + " seconds ago", PlayerName, false);
 					break;
 					}
@@ -1552,6 +1553,11 @@ namespace PRoConEvents
 				{
 					PlayerKickQueue.Remove(playerInfo.SoldierName);
 				}
+			}
+			
+			if (GetState() == GState.Playing)
+			{
+				CheckVictoryConditions(false);
 			}
 		}
 
