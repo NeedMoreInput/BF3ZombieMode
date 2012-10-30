@@ -2028,7 +2028,7 @@ namespace PRoConEvents
 
 		private void TempBanPlayer(string PlayerName, string Reason)
 		{
-			ExecuteCommand("procon.protected.send", "banList.add", "name", PlayerName, "seconds", TempBanSeconds.ToString(), Reason + " (Temporary/60)");
+			ExecuteCommand("procon.protected.send", "banList.add", "name", PlayerName, "seconds", TempBanSeconds.ToString(), Reason + " (Temporary/" + (TempBanSeconds/60) + ")");
 
 			ExecuteCommand("procon.protected.send", "banList.save");
 
