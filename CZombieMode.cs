@@ -2479,7 +2479,7 @@ namespace PRoConEvents
 			if (ZCount == 0 && HCount > 0)
 			{
 				msg = "HUMANS WIN, no zombies left on the server!"; // $$$ - custom message
-				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+				DebugWrite("^4^b ***** " + msg + "^n^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
 				return;
@@ -2488,14 +2488,14 @@ namespace PRoConEvents
 			if (ZombieKillLimitEnabled == false && Winner != null && ZCount > MinimumZombies) // Last man standing?
 			{
 				msg = "WINNER: " + Winner + " is the last human survivor!"; // $$$ - custom message
-				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+				DebugWrite("^4^b ***** " + msg + "^n^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
 			}
 			else if (HCount > 0 && KillTracker.GetZombiesKilled() >= Needed) // Humans got enough kills?
 			{
 				msg = "HUMANS WIN with " + KillTracker.GetZombiesKilled() + " zombies killed!"; // $$$ - custom message
-				DebugWrite("^2^b ***** " + msg + "^n^0", 1);
+				DebugWrite("^4^b ***** " + msg + "^n^0", 1);
 				TellAll(msg);
 				CountdownNextRound(HUMAN_TEAM);
 			}
@@ -3490,8 +3490,8 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
 <h3>Changelog</h3>
-<blockquote><h4>1.0.1.0 (26-OCT-2012)</h4>
-	- V1.0: Added <b>Matches Before Next Map</b> setting, more improvements to MakeTeams.<br/>
+<blockquote><h4>1.1.0.0 (28-OCT-2012)</h4>
+	- V1.1 Update: Added <b>Matches Before Next Map</b> setting, more improvements to MakeTeams.<br/>
 </blockquote>
 <blockquote><h4>1.0.1.0 (27-OCT-2012)</h4>
 	- V1.0 Patch 1: Improved timing between MakeTeams and TeamChange event<br/>
