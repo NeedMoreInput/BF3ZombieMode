@@ -3497,6 +3497,9 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
 <h3>Changelog</h3>
+<blockquote><h4>1.1.2.0 (31-OCT-2012)</h4>
+	- V1.1 Patch 2: Fixed problem with making teams between rounds.<br/>
+</blockquote>
 <blockquote><h4>1.1.0.0 (28-OCT-2012)</h4>
 	- V1.1 Update: Added <b>Matches Before Next Map</b> setting, more improvements to MakeTeams.<br/>
 </blockquote>
