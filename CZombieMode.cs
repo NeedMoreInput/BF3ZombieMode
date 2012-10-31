@@ -1185,8 +1185,28 @@ namespace PRoConEvents
 				
 				DebugWrite("OnPlayerTeamChange: ServerSwitchedCount=" + (ServerSwitchedCount+1) + ", KnownPlayerCount=" + KnownPlayerCount, 5);
 
+				if (teamId == 1) // to humans
+				{
+					++ServerSwitchedCount;
+
+					// Add to the lottery if eligible
+					if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
+
+					UpdateTeams(soldierName, 1);
+				} 
+				else if (teamId == 2) // to zombies
+				{
+					++ServerSwitchedCount;
+
+					// Switch back
+					MakeHumanFast(soldierName);
+
+					UpdateTeams(soldierName, 1);
+				}
+
+
 				// When the server is done swapping players, process patient zero
-				if ((ServerSwitchedCount+1) >= KnownPlayerCount)
+				if (ServerSwitchedCount >= KnownPlayerCount)
 				{
 					while (ZombieCount < MinimumZombies)
 					{
@@ -1240,27 +1260,6 @@ namespace PRoConEvents
 					ServerSwitchedCount = 0;
 					
 					SetState(GState.RoundStarting);
-				}
-				else // still switching between rounds
-				{
-					if (teamId == 1) // to humans
-					{
-						++ServerSwitchedCount;
-
-						// Add to the lottery if eligible
-						if (!PatientZeroes.Contains(soldierName)) Lottery.Add(soldierName);
-
-						UpdateTeams(soldierName, 1);
-					} 
-					else if (teamId == 2) // to zombies
-					{
-						++ServerSwitchedCount;
-						
-						// Switch back
-						MakeHumanFast(soldierName);
-						
-						UpdateTeams(soldierName, 1);
-					}
 				}
 				/*
 				GameState stays in BetweenRounds state because we don't know when the
@@ -1557,6 +1556,8 @@ namespace PRoConEvents
 			
 			if (GetState() == GState.Playing)
 			{
+				AdaptDamage();
+				
 				CheckVictoryConditions(false);
 			}
 		}
