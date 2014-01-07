@@ -24,6 +24,7 @@ using System.Threading;
 using PRoCon.Core;
 using PRoCon.Core.Plugin;
 using PRoCon.Core.Players;
+using PRoCon.Core.Players.Items;
 
 enum NoticeDisplayType { yell, say };
 
@@ -167,6 +168,8 @@ namespace PRoConEvents
 		private int MatchesCount = 0;
 		
 		private String LastMover = null;
+
+        private String TestWeapon = String.Empty;
 		
 		#endregion
 
@@ -205,6 +208,11 @@ namespace PRoConEvents
 
 		#endregion
 
+        public enum GameVersion { BF3, BF4 };
+
+        private GameVersion fGameVersion = GameVersion.BF3;
+
+        // BF3
 		private string[] ZombieWeapons = 
 	    {
 	        "Melee",
@@ -215,6 +223,7 @@ namespace PRoConEvents
 	    };
 
 		#region WeaponList
+        // BF3
 		private List<String> WeaponList = new List<String>(new string[] {
             "870MCS",
             "AEK-971",
@@ -300,11 +309,21 @@ namespace PRoConEvents
             "Weapons/XP2_ACR/ACR",
             "Weapons/XP2_L86/L86",
             "Weapons/XP2_MP5K/MP5K",
-            "Weapons/XP2_MTAR/MTAR"
+            "Weapons/XP2_MTAR/MTAR",
+            "CrossBow"
         });
+
+        private List<String> BF4WeaponList = new List<String>();
 		#endregion
 
 		#region ZombieWeaponList
+        // BF4
+		private List<String> BF4ZombieWeaponsEnabled = new List<String>(new string[] {
+			"Repairtool",
+			"Defib",
+			"Melee"
+		});
+        // BF3
 		private List<String> ZombieWeaponsEnabled = new List<String>(new string[] {
 			"Repair Tool",
 			"Defib",
@@ -315,6 +334,7 @@ namespace PRoConEvents
 		#endregion
 
 		#region HumanWeaponList
+        // BF3
 		private List<String> HumanWeaponsEnabled = new List<String>(new string[] {
 			"870MCS",
             "AEK-971",
@@ -400,8 +420,36 @@ namespace PRoConEvents
             "Weapons/XP2_ACR/ACR",
             "Weapons/XP2_L86/L86",
             "Weapons/XP2_MP5K/MP5K",
-            "Weapons/XP2_MTAR/MTAR"
+            "Weapons/XP2_MTAR/MTAR",
+            "CrossBow"
 		});
+
+        // BF4
+		private List<String> BF4HumanWeaponsDisabled = new List<String>(new string[] {
+            // Explosives
+            "C4",
+            "Claymore",
+            "M15",
+            "M320",
+            "MGL",
+            "SLAM",
+            "UCAV",
+            "XM25",
+            "Grenade",
+            "M67",
+            "V40",
+            // Rocket launchers
+            "AT4",
+            "FGM148",
+            "FIM92",
+            "NLAW",
+            "RPG7",
+            "Sa18IGLA",
+            "SMAW",
+            "SRAW",
+            "Starstreak"
+        });
+
 		#endregion
 
 		#region EventHandlers
@@ -473,6 +521,10 @@ namespace PRoConEvents
 			// Extract the short weapon name
 			Match WeaponMatch = Regex.Match(info.DamageType, @"Weapons/[^/]*/([^/]*)", RegexOptions.IgnoreCase);
 			String WeaponName = (WeaponMatch.Success) ? WeaponMatch.Groups[1].Value : info.DamageType;
+
+            if (fGameVersion == GameVersion.BF4) {
+                WeaponName = FriendlyWeaponName(WeaponName);
+            }
 
 			const String INDIRECT_KILL = "INDIRECT KILL";
 
@@ -1588,6 +1640,46 @@ namespace PRoConEvents
 		#region PluginMethods
 		/** PLUGIN RELATED SHIT **/
 		#region PluginEventHandlers
+
+        public void OnPluginLoadingEnv(List<string> lstPluginEnv) {
+            foreach (String env in lstPluginEnv)
+            {
+                DebugWrite("^9OnPluginLoadingEnv: " + env, 8);
+            }
+            switch (lstPluginEnv[1])
+            {
+                case "BF3": fGameVersion = GameVersion.BF3; break;
+                case "BF4": fGameVersion = GameVersion.BF4; break;
+                default: break;
+            }
+
+            if (fGameVersion == GameVersion.BF4) {
+                // initialize values for all known weapons
+                WeaponDictionary dic = GetWeaponDefines();
+                BF4WeaponList.Clear();
+                foreach (Weapon weapon in dic) {
+                    if (weapon == null || String.IsNullOrEmpty(weapon.Name)) continue;
+                    String wn = FriendlyWeaponName(weapon.Name);
+                    if (!BF4WeaponList.Contains(wn))
+                        BF4WeaponList.Add(wn);
+                }
+                BF4WeaponList.Sort();
+                // Initialize the human weapon list
+                if (fGameVersion == GameVersion.BF4) {
+                    HumanWeaponsEnabled.Clear();
+                    HumanWeaponsEnabled.AddRange(BF4WeaponList);
+                    foreach (String disable in BF4HumanWeaponsDisabled) {
+                        if (HumanWeaponsEnabled.Contains(disable)) HumanWeaponsEnabled.Remove(disable);
+                    }
+                }
+                // Initialize the zombie weapon list
+                ZombieWeaponsEnabled.Clear();
+                ZombieWeaponsEnabled.AddRange(BF4ZombieWeaponsEnabled);
+                // Change mode to say until yell is available
+                AnnounceDisplayType = NoticeDisplayType.say;
+            }
+        }
+
 		public void OnPluginLoaded(string strHostName, string strPort, string strPRoConVersion)
 		{
 			RegisterEvents(GetType().Name, 
@@ -1612,7 +1704,7 @@ namespace PRoConEvents
 		{
 			//System.Diagnostics.Debugger.Break();
 			ConsoleLog("^b^2Enabled... It's Game Time!");
-			ConsoleLog("--- Version " + GetPluginVersion() + " ---");
+			ConsoleLog("--- Version " + GetPluginVersion() + " --- " + ((fGameVersion == GameVersion.BF4) ? "BF4" : "BF3"));
 		}
 
 		public void OnPluginDisable()
@@ -1631,7 +1723,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "1.1.2.0";
+			return "1.1.3.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1683,6 +1775,8 @@ namespace PRoConEvents
 			lstReturn.Add(new CPluginVariable("Admin Settings|Rule List", typeof(string[]), RuleList.ToArray()));
 
 			lstReturn.Add(new CPluginVariable("Admin Settings|Admin Users", typeof(string[]), AdminUsers.ToArray()));
+			
+			lstReturn.Add(new CPluginVariable("Admin Settings|Test Weapon", TestWeapon.GetType(), TestWeapon));
 
 			lstReturn.Add(new CPluginVariable("Game Settings|Max Players", MaxPlayers.GetType(), MaxPlayers));
 
@@ -1739,6 +1833,7 @@ namespace PRoConEvents
 
 			lstReturn.Add(new CPluginVariable("Human Damage Percentage|Against Countless Zombies", AgainstCountlessZombies.GetType(), AgainstCountlessZombies));
 
+            /*
 			foreach (PRoCon.Core.Players.Items.Weapon Weapon in WeaponDictionaryByLocalizedName.Values)
 			{
 				String WeaponDamage = Weapon.Damage.ToString();
@@ -1747,6 +1842,19 @@ namespace PRoConEvents
 					continue;
 
 				String WeaponName = Weapon.Name.ToString();
+				lstReturn.Add(new CPluginVariable(String.Concat("Zombie Weapons|Z -", WeaponName), typeof(enumBoolOnOff), ZombieWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
+				lstReturn.Add(new CPluginVariable(String.Concat("Human Weapons|H -", WeaponName), typeof(enumBoolOnOff), HumanWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
+			}
+            */
+
+            List<String> wlist = new List<String>();
+            if (fGameVersion == GameVersion.BF4) {
+                wlist.AddRange(BF4WeaponList);
+            } else {
+                wlist.AddRange(WeaponList);
+            }
+			foreach (String WeaponName in wlist)
+			{
 				lstReturn.Add(new CPluginVariable(String.Concat("Zombie Weapons|Z -", WeaponName), typeof(enumBoolOnOff), ZombieWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
 				lstReturn.Add(new CPluginVariable(String.Concat("Human Weapons|H -", WeaponName), typeof(enumBoolOnOff), HumanWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			}
@@ -1764,8 +1872,8 @@ namespace PRoConEvents
 
 		public void SetPluginVariable(string Name, string Value)
 		{
-			ThreadStart MyThread = delegate
-			{
+			//ThreadStart MyThread = delegate
+			//{
 				try
 				{
 					int PipeIndex = Name.IndexOf('|');
@@ -1819,7 +1927,9 @@ namespace PRoConEvents
 					{
 						String WeaponName = Name.Substring(3, Name.Length - 3);
 
-						if (WeaponList.IndexOf(WeaponName) >= 0)
+                        List<String> wlist = (fGameVersion == GameVersion.BF3) ? WeaponList : BF4WeaponList;
+
+						if (wlist.IndexOf(WeaponName) >= 0)
 						{
 							String WeaponType = Name.Substring(0, 3);
 
@@ -1911,11 +2021,49 @@ namespace PRoConEvents
 						KillsIf8OrLessPlayers = 6; // default
 					}
 				}
-			};
+			//};
 
-			Thread t = new Thread(MyThread);
+			//Thread t = new Thread(MyThread);
 
-			t.Start();
+			//t.Start();
+
+            if (!String.IsNullOrEmpty(TestWeapon)) {
+                try {
+                    // Map to weapon name
+                    String wn = TestWeapon;
+                    List<String> found = new List<String>();
+                    List<String> raw = new List<String>(); // raw weapon code names
+                    if (fGameVersion == GameVersion.BF4) {
+                        WeaponDictionary wd = GetWeaponDefines();
+                        foreach (Weapon ww in wd) {
+                            if (ww != null && !String.IsNullOrEmpty(ww.Name)) raw.Add(ww.Name);
+                        }
+                    } else {
+                        raw.AddRange(WeaponList);
+                    }
+                    foreach (String wraw in raw) {
+                        if (Regex.Match(wraw, wn, RegexOptions.IgnoreCase).Success) {
+                            found.Add(wraw);
+                        }
+                    }
+                    if (found.Count == 1) {
+                        wn = found[0];
+                        ConsoleLog("^1Testing weapon: ^b" + wn + "^n (" + TestWeapon + ")");
+                        String h = "ON";
+                        String z = "off";
+                        if (!ValidateWeapon(wn, HUMAN_TEAM)) h = "off";
+                        if (ValidateWeapon(wn, ZOMBIE_TEAM)) z = "ON";
+                        ConsoleLog("^1^b" + wn + "^n: Humans(^b" + h + "^n), Zombies(^b" + z + "^n)");
+                    } else if (found.Count == 0) {
+                        ConsoleLog("^1Test Weapon (" + TestWeapon + ") not found, try again!");
+                    } else {
+                        ConsoleLog("^1Test Weapon ^b" + TestWeapon + "^n matches " + found.Count + " weapon names, which do you mean?");
+                        ConsoleLog(String.Join(", ", found.ToArray()));
+                    }
+                } catch (Exception e) {
+                }
+                TestWeapon = String.Empty;
+            }
 
 			
 		}
@@ -2626,6 +2774,7 @@ namespace PRoConEvents
 			int Index = HumanWeaponsEnabled.IndexOf(WeaponName);
 			if (Index >= 0)
 				HumanWeaponsEnabled.RemoveAt(Index);
+            if (!HumanWeaponsEnabled.Contains(WeaponName)) DebugWrite("^9DisableHumanWeapon(" + WeaponName + ")", 4);
 		}
 
 		private void EnableZombieWeapon(String WeaponName)
@@ -2640,7 +2789,7 @@ namespace PRoConEvents
 			int Index = HumanWeaponsEnabled.IndexOf(WeaponName);
 			if (Index < 0)
 				HumanWeaponsEnabled.Add(WeaponName);
-
+            if (HumanWeaponsEnabled.Contains(WeaponName)) DebugWrite("^9EnableHumanWeapon(" + WeaponName + ")", 4);
 		}
 
 		private bool ValidateWeapon(string Weapon, string TEAM_CONST)
@@ -2648,9 +2797,14 @@ namespace PRoConEvents
 			if (Regex.Match(Weapon, @"(?:Suicide|Death|SoldierCollision|RoadKill|DamageArea)").Success)
 				return true;
 
+            String wn = Weapon;
+            if (fGameVersion == GameVersion.BF4) {
+                wn = FriendlyWeaponName(Weapon);
+            }
+
 			if (
-				(TEAM_CONST == HUMAN_TEAM && HumanWeaponsEnabled.IndexOf(Weapon) >= 0) || 
-				(TEAM_CONST == ZOMBIE_TEAM && ZombieWeaponsEnabled.IndexOf(Weapon) >= 0)
+				(TEAM_CONST == HUMAN_TEAM && HumanWeaponsEnabled.IndexOf(wn) >= 0) || 
+				(TEAM_CONST == ZOMBIE_TEAM && ZombieWeaponsEnabled.IndexOf(wn) >= 0)
 				)
 				return true;
 			
@@ -3052,6 +3206,28 @@ namespace PRoConEvents
 			}
 		}
 
+        public String FriendlyWeaponName(String killWeapon)
+        {
+            String _name = killWeapon;
+
+            if (killWeapon.StartsWith("U_"))
+            {
+                String[] tParts = killWeapon.Split(new[]{'_'});
+
+                if (tParts.Length == 2) { // U_Name
+                    _name = tParts[1];
+                }  else if (tParts.Length == 3) { // U_Name_Detail
+                    _name = tParts[1];
+                }  else if (tParts.Length >= 4) { // U_AttachedTo_Name_Detail
+                    _name = tParts[2];
+                } else {
+                    DebugWrite("Warning: unrecognized weapon code: " + killWeapon, 5);
+                }
+            }
+            return _name;
+        }
+
+
 		#endregion
 
 	}
@@ -3347,9 +3523,9 @@ namespace PRoConEvents
 		public String HTML = @"
 <h2>Description</h2>
 
-<p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the <i>Infected</i> or <i>Zombie</i> variant play.</p>
+<p>Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the <i>Infected</i> or <i>Zombie</i> variant play.</p>
 
-<p><b>NOTE:</b> the game server <b>must</b> be run in unranked mode (vars.ranked false). Zombie Mode will not work on a ranked server.</p>
+<p><font color='#FF0000'><b>NOTE:</b> the game server <b>must be run in unranked mode</b> (BF3: vars.ranked false, BF4: vars.serverType Unranked). Zombie Mode will not work on a ranked server.</font></p>
 
 <p>When there are a minimum number of players spawned, all of the players are moved to the human team (US), except for one zombie (RU). With default settings, Zombies can use knife/defib/repair tool <i>only</i> for weapons and Humans can use any weapon <i>except</i> explosives (grenades, C4, Claymores) or missiles; the allowed/forbidden weapon settings are configurable. Zombies are hard to kill. Every time a zombie kills a human, the human becomes infected and is moved to the zombie team. Humans win by killing a minimum number of zombies (configurable) or when all the zombies leave the server. Zombies win by infecting all the humans or when all the humans leave the server.</p>
 
@@ -3357,7 +3533,7 @@ namespace PRoConEvents
 
 <p>The plugin is driven by players spawning. Until a minimum number of individual players spawns, the match won't start. See <b>Minimum Zombies</b> and <b>Minimum Humans</b> below.</p>
 
-<p>Recommended server settings are here: <a href=https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings>https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings</a></p>
+<p>Recommended BF3 server settings are here: <a href=https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings>https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings</a></p>
 
 <h2>Settings</h2>
 <p>There are a large number of configurable setttings, divided into sections.</p>
@@ -3388,6 +3564,8 @@ namespace PRoConEvents
 <p><b>Rule List</b>: A table of rules, one chat/yell line per rule, displayed when players type the <b>!zombie rules</b> in-game command. The default set of rules reflect the default settings, such as humans not using explosives. Useful for when you change the default weapon limitations for humans and zombies, you can tell players what weapons are allowed or forbidden. Also useful if you want to add more rules, like kicking players for using MAV.</p>
 
 <p><b>Admin Users</b>: A table of soldier names that will be permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
+
+<p><b>Test Weapon</b>: For debugging the plugin only, type in the name of a weapon and test if Humans or Zombies are allowed to use (ON) or not use (off) that weapon.</p>
 
 <h3>Game Settings</h3>
 
@@ -3497,6 +3675,9 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
 <h3>Changelog</h3>
+<blockquote><h4>1.1.3.0 (07-JAN-2014)</h4>
+	- V1.1 Patch 3: Added support for BF4, mostly different weapon list.<br/>
+</blockquote>
 <blockquote><h4>1.1.2.0 (31-OCT-2012)</h4>
 	- V1.1 Patch 2: Fixed problem with making teams between rounds.<br/>
 </blockquote>

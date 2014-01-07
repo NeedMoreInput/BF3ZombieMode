@@ -3,9 +3,9 @@ BF3 Zombie Mode
 
 <h2>Description</h2>
 
-<p>BF3 Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the <i>Infected</i> or <i>Zombie</i> variant play.</p>
+<p>Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the <i>Infected</i> or <i>Zombie</i> variant play.</p>
 
-<p><b>NOTE:</b> the game server <b>must</b> be run in unranked mode (vars.ranked false). Zombie Mode will not work on a ranked server.</p>
+<p><font color='#FF0000'><b>NOTE:</b> the game server <b>must be run in unranked mode</b> (BF3: vars.ranked false, BF4: vars.serverType Unranked). Zombie Mode will not work on a ranked server.</font></p>
 
 <p>When there are a minimum number of players spawned, all of the players are moved to the human team (US), except for one zombie (RU). With default settings, Zombies can use knife/defib/repair tool <i>only</i> for weapons and Humans can use any weapon <i>except</i> explosives (grenades, C4, Claymores) or missiles; the allowed/forbidden weapon settings are configurable. Zombies are hard to kill. Every time a zombie kills a human, the human becomes infected and is moved to the zombie team. Humans win by killing a minimum number of zombies (configurable) or when all the zombies leave the server. Zombies win by infecting all the humans or when all the humans leave the server.</p>
 
@@ -13,7 +13,7 @@ BF3 Zombie Mode
 
 <p>The plugin is driven by players spawning. Until a minimum number of individual players spawns, the match won't start. See <b>Minimum Zombies</b> and <b>Minimum Humans</b> below.</p>
 
-<p>Recommended server settings are here: <a href=https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings>https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings</a></p>
+<p>Recommended BF3 server settings are here: <a href=https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings>https://github.com/m4xxd3v/BF3ZombieMode/wiki/Recommended-server-settings</a></p>
 
 <h2>Settings</h2>
 <p>There are a large number of configurable setttings, divided into sections.</p>
@@ -45,6 +45,8 @@ BF3 Zombie Mode
 
 <p><b>Admin Users</b>: A table of soldier names that will be permitted to use in-game admin commands (see below). The default value is <i>PapaCharlieNiner</i>.</p>
 
+<p><b>Test Weapon</b>: For debugging the plugin only, type in the name of a weapon and test if Humans or Zombies are allowed to use (ON) or not use (off) that weapon.</p>
+
 <h3>Game Settings</h3>
 
 <p><b>Max Players</b>: Any players that try to join above this number will be kicked immediately. Make sure this number is equal to or less than <b>half</b> of your maximum slot count for your game server. For example, if you have a 48 slot server, set the maximum no higher than 24. This is a limitation of BF3 game servers, you can only use half your slots for this mode. The default value is <i>32</i>.</p>
@@ -63,7 +65,7 @@ BF3 Zombie Mode
 
 <p><b>Rematch Enabled</b>: <i>On/Off</i>, default is <i>On</i>.  If <i>On</i>, when a team wins and the match is over, a new match will be started after a short countdown during the same map round/level. <b>Matches Before Next Map</b> will be played before the next map is loaded. When <i>Off</i>, the current map round/level will be ended, the winning team will be declared the winner of the whole round and the next map round/level will be loaded and started. Turning this <i>On</i> makes matches happen quicker and back-to-back on the same map, while turning this <i>Off</i> takes longer between matches, but lets your players try out all the maps in your rotation.</p>
 
-<p><b>Matches Before Next Map</b>: The default value is <i>3</i>. If <b>Rematch Enabled</b> is <i>On</i>, this is the number of matches that are played in the same map round/level before the next map is loaded. This assumes the map list is set up to only play each map level 1 round.</p>
+<p><b>Matches Before Next Map</b>: The default value is <i>3</i>. If <b>Rematch Enabled</b> is <i>On</i>, this is the number of matches that are played in the same map round/level before the next map is loaded. This assumes the map list is set up to only play eacy map level 1 round.</p>
 
 <h3>Goal For Humans</h3>
 
@@ -151,5 +153,4 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie rematch</b> <i>on</i>/<i>off</i>: Changes the <b>Rematch Enabled</b> setting</p>
 
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
-
 
