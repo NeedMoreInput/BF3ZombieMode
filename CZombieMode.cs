@@ -208,9 +208,9 @@ namespace PRoConEvents
 
 		#endregion
 
-        public enum GameVersion { BF3, BF4 };
+        public enum GameVersion { BF3, BF4, BFH };
 
-        private GameVersion fGameVersion = GameVersion.BF3;
+        private GameVersion fGameVersion = GameVersion.BF4;
 
         // BF3
 		private string[] ZombieWeapons = 
@@ -313,15 +313,16 @@ namespace PRoConEvents
             "CrossBow"
         });
 
-        private List<String> BF4WeaponList = new List<String>();
+        private List<String> DefWeaponList = new List<String>();
 		#endregion
 
 		#region ZombieWeaponList
-        // BF4
-		private List<String> BF4ZombieWeaponsEnabled = new List<String>(new string[] {
+        // BF4 and BFH
+		private List<String> DefZombieWeaponsEnabled = new List<String>(new string[] {
 			"Repairtool",
 			"Defib",
-			"Melee"
+			"Melee",
+            "Knife"
 		});
         // BF3
 		private List<String> ZombieWeaponsEnabled = new List<String>(new string[] {
@@ -449,6 +450,31 @@ namespace PRoConEvents
             "SRAW",
             "Starstreak"
         });
+
+        // BFH
+		private List<String> BFHHumanWeaponsDisabled = new List<String>(new string[] {
+            // Explosives
+            "CS Gas",
+                // "Flashbang",
+                // "IncendiaryDevice",
+            "M18",
+            "M320",
+            "M67",
+            "M79",
+                // "Molotov",
+                // "SabotageTool",
+                // "TripMine"
+
+            // Rocket launchers
+            "FIM92",
+            "RPG7",
+            "smaw",
+            "SP RPG7",
+            "SP smaw",
+            "u_smaw",
+            "u_sp_smaw"
+        });
+
 
 		#endregion
 
@@ -1650,33 +1676,47 @@ namespace PRoConEvents
             {
                 case "BF3": fGameVersion = GameVersion.BF3; break;
                 case "BF4": fGameVersion = GameVersion.BF4; break;
+                case "BFHL": fGameVersion = GameVersion.BFH; break;
                 default: break;
             }
 
-            if (fGameVersion == GameVersion.BF4) {
+            if (fGameVersion != GameVersion.BF3) { // GameVersion.BF4 or GameVersion.BFH
                 // initialize values for all known weapons
                 WeaponDictionary dic = GetWeaponDefines();
-                BF4WeaponList.Clear();
+                DefWeaponList.Clear();
                 foreach (Weapon weapon in dic) {
                     if (weapon == null || String.IsNullOrEmpty(weapon.Name)) continue;
                     String wn = FriendlyWeaponName(weapon.Name);
-                    if (!BF4WeaponList.Contains(wn))
-                        BF4WeaponList.Add(wn);
+                    if (!DefWeaponList.Contains(wn))
+                        DefWeaponList.Add(wn);
                 }
-                BF4WeaponList.Sort();
+                DefWeaponList.Sort();
                 // Initialize the human weapon list
+                HumanWeaponsEnabled.Clear();
+                HumanWeaponsEnabled.AddRange(DefWeaponList);
                 if (fGameVersion == GameVersion.BF4) {
-                    HumanWeaponsEnabled.Clear();
-                    HumanWeaponsEnabled.AddRange(BF4WeaponList);
                     foreach (String disable in BF4HumanWeaponsDisabled) {
-                        if (HumanWeaponsEnabled.Contains(disable)) HumanWeaponsEnabled.Remove(disable);
+                        if (HumanWeaponsEnabled.Contains(disable)) 
+                            HumanWeaponsEnabled.Remove(disable);
+                    }
+                } else if (fGameVersion == GameVersion.BFH) {
+                    foreach (String disable in BFHHumanWeaponsDisabled) {
+                        if (HumanWeaponsEnabled.Contains(disable)) 
+                            HumanWeaponsEnabled.Remove(disable);
                     }
                 }
                 // Initialize the zombie weapon list
                 ZombieWeaponsEnabled.Clear();
-                ZombieWeaponsEnabled.AddRange(BF4ZombieWeaponsEnabled);
+                //ZombieWeaponsEnabled.AddRange(BF4ZombieWeaponsEnabled);
+                foreach (String okz in DefWeaponList) {
+                    if (DefZombieWeaponsEnabled.Contains(okz)) {
+                        ZombieWeaponsEnabled.Add(okz);
+                    }
+                }
+
+
                 // Change mode to say until yell is available
-                AnnounceDisplayType = NoticeDisplayType.say;
+                //AnnounceDisplayType = NoticeDisplayType.say;
             }
         }
 
@@ -1704,7 +1744,7 @@ namespace PRoConEvents
 		{
 			//System.Diagnostics.Debugger.Break();
 			ConsoleLog("^b^2Enabled... It's Game Time!");
-			ConsoleLog("--- Version " + GetPluginVersion() + " --- " + ((fGameVersion == GameVersion.BF4) ? "BF4" : "BF3"));
+			ConsoleLog("--- Version " + GetPluginVersion() + " --- " + fGameVersion);
 		}
 
 		public void OnPluginDisable()
@@ -1723,7 +1763,7 @@ namespace PRoConEvents
 
 		public string GetPluginVersion()
 		{
-			return "1.1.3.0";
+			return "1.1.4.0";
 		}
 
 		public string GetPluginAuthor()
@@ -1848,15 +1888,15 @@ namespace PRoConEvents
             */
 
             List<String> wlist = new List<String>();
-            if (fGameVersion == GameVersion.BF4) {
-                wlist.AddRange(BF4WeaponList);
+            if (fGameVersion != GameVersion.BF3) { // GameVersion.BF4 or GameVersion.BFH
+                wlist.AddRange(DefWeaponList);
             } else {
                 wlist.AddRange(WeaponList);
             }
 			foreach (String WeaponName in wlist)
 			{
 				lstReturn.Add(new CPluginVariable(String.Concat("Zombie Weapons|Z -", WeaponName), typeof(enumBoolOnOff), ZombieWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
-				lstReturn.Add(new CPluginVariable(String.Concat("Human Weapons|H -", WeaponName), typeof(enumBoolOnOff), HumanWeaponsEnabled.IndexOf(WeaponName) >= 0 ? enumBoolOnOff.On : enumBoolOnOff.Off));
+				lstReturn.Add(new CPluginVariable(String.Concat("Human Weapons|H -", WeaponName), typeof(enumBoolOnOff), HumanWeaponsEnabled.Contains(WeaponName) ? enumBoolOnOff.On : enumBoolOnOff.Off));
 			}
 
 
@@ -1927,7 +1967,7 @@ namespace PRoConEvents
 					{
 						String WeaponName = Name.Substring(3, Name.Length - 3);
 
-                        List<String> wlist = (fGameVersion == GameVersion.BF3) ? WeaponList : BF4WeaponList;
+                        List<String> wlist = (fGameVersion == GameVersion.BF3) ? WeaponList : DefWeaponList;
 
 						if (wlist.IndexOf(WeaponName) >= 0)
 						{
@@ -2033,10 +2073,11 @@ namespace PRoConEvents
                     String wn = TestWeapon;
                     List<String> found = new List<String>();
                     List<String> raw = new List<String>(); // raw weapon code names
-                    if (fGameVersion == GameVersion.BF4) {
+                    if (fGameVersion != GameVersion.BF3) { // GameVersion.BF4 or GameVersion.BFH
                         WeaponDictionary wd = GetWeaponDefines();
                         foreach (Weapon ww in wd) {
-                            if (ww != null && !String.IsNullOrEmpty(ww.Name)) raw.Add(ww.Name);
+                            if (ww != null && !String.IsNullOrEmpty(ww.Name)) 
+                                raw.Add(ww.Name);
                         }
                     } else {
                         raw.AddRange(WeaponList);
@@ -2798,7 +2839,7 @@ namespace PRoConEvents
 				return true;
 
             String wn = Weapon;
-            if (fGameVersion == GameVersion.BF4) {
+            if (fGameVersion != GameVersion.BF3) { // GameVersion.BF4 or GameVersion.BFH
                 wn = FriendlyWeaponName(Weapon);
             }
 
@@ -3210,14 +3251,24 @@ namespace PRoConEvents
         {
             String _name = killWeapon;
 
+            if (_name.Contains("Vehicle") || _name.Contains("havana")) // Filter our unwanted BFHL weapons
+                return "Melee";
+            if (_name == "U_CS_Gas")
+                return "CS Gas";
+
             if (killWeapon.StartsWith("U_"))
             {
                 String[] tParts = killWeapon.Split(new[]{'_'});
 
                 if (tParts.Length == 2) { // U_Name
                     _name = tParts[1];
+                    // BFHL
+                    if (_name.Contains("Knife"))
+                        _name = "Knife";
                 }  else if (tParts.Length == 3) { // U_Name_Detail
                     _name = tParts[1];
+                    if (_name == "SP" || _name == "sp") // BFHL, U_SP_RPG7 and U_sp_smaw
+                        _name = "SP " + tParts[2];
                 }  else if (tParts.Length >= 4) { // U_AttachedTo_Name_Detail
                     _name = tParts[2];
                 } else {
@@ -3525,7 +3576,7 @@ namespace PRoConEvents
 
 <p>Zombie Mode is a ProCon 1.0 plugin that turns Team Deathmatch into the <i>Infected</i> or <i>Zombie</i> variant play.</p>
 
-<p><font color='#FF0000'><b>NOTE:</b> the game server <b>must be run in unranked mode</b> (BF3: vars.ranked false, BF4: vars.serverType Unranked). Zombie Mode will not work on a ranked server.</font></p>
+<p><font color='#FF0000'><b>NOTE:</b> the game server <b>must be run in unranked mode</b> (BF3: vars.ranked false, BF4 or BFHL: vars.serverType Unranked). Zombie Mode will not work on a ranked server.</font></p>
 
 <p>When there are a minimum number of players spawned, all of the players are moved to the human team (US), except for one zombie (RU). With default settings, Zombies can use knife/defib/repair tool <i>only</i> for weapons and Humans can use any weapon <i>except</i> explosives (grenades, C4, Claymores) or missiles; the allowed/forbidden weapon settings are configurable. Zombies are hard to kill. Every time a zombie kills a human, the human becomes infected and is moved to the zombie team. Humans win by killing a minimum number of zombies (configurable) or when all the zombies leave the server. Zombies win by infecting all the humans or when all the humans leave the server.</p>
 
@@ -3675,6 +3726,9 @@ will kick PapaCharlie9 for 'Too much glitching!'. Useful to get rid of cheaters.
 <p><b>!zombie restart</b>: Restarts the current map round/level. Useful if the tickets/kills for TDM are getting close to the maximum to end a normal TDM round, which might happen in the middle of a quick rematch.</p>
 
 <h3>Changelog</h3>
+<blockquote><h4>1.1.4.0 (19-APR-2015)</h4>
+	- V1.1 Patch 4: Added support for BFHL, mostly different weapon list.<br/>
+</blockquote>
 <blockquote><h4>1.1.3.0 (07-JAN-2014)</h4>
 	- V1.1 Patch 3: Added support for BF4, mostly different weapon list.<br/>
 </blockquote>
